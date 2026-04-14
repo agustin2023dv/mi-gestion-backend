@@ -30,6 +30,12 @@ public class GetSubcategoriasByCategoriaUseCase {
 
     @Transactional(readOnly = true)
     public PageResponse<SubcategoriaResponse> execute(Long categoriaId, Pageable pageable) {
+        if (categoriaId == null) {
+            Page<SubcategoriaResponse> subcategoriaPage = subcategoriaRepository.findByIsActiveTrue(pageable)
+                    .map(subcategoriaMapper::toResponse);
+            return toPageResponse(subcategoriaPage);
+        }
+
         if (!categoriaRepository.existsByIdAndIsActiveTrue(categoriaId)) {
             throw new ResourceNotFoundException("Categoria", categoriaId);
         }

@@ -56,7 +56,7 @@ public class CategoriaController {
 
     @GetMapping("/api/v1/subcategorias")
     public ResponseEntity<Map<String, Object>> getSubcategoriasByCategoria(
-            @RequestParam Long categoriaId,
+            @RequestParam(required = false) Long categoriaId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(defaultValue = "nombre,asc") String sort
