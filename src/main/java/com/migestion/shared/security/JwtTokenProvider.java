@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Objects;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
@@ -100,6 +101,11 @@ public class JwtTokenProvider {
             String role,
             Collection<String> permissions,
             Duration ttl) {
+        String normalizedRole = Objects.requireNonNull(role, "role must not be null").trim();
+        if (normalizedRole.isEmpty()) {
+            throw new IllegalArgumentException("role must not be blank");
+        }
+
         Instant now = Instant.now();
         Instant expiration = now.plus(ttl.toSeconds(), ChronoUnit.SECONDS);
         String jti = UUID.randomUUID().toString();
@@ -108,7 +114,7 @@ public class JwtTokenProvider {
                 .subject(String.valueOf(userId))
                 .id(jti)
                 .claim(TENANT_ID_CLAIM, tenantId)
-                .claim(ROLE_CLAIM, role)
+            .claim(ROLE_CLAIM, normalizedRole)
                 .claim(PERMISSIONS_CLAIM, permissions)
                 .claim(Claims.ID, jti)
                 .issuedAt(Date.from(now))
