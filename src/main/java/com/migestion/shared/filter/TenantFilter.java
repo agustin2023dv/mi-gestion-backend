@@ -153,6 +153,10 @@ public class TenantFilter extends OncePerRequestFilter {
             return true;
         }
 
+        if ("GET".equalsIgnoreCase(method) && path.startsWith("/api/v1/pedidos/track/")) {
+            return true;
+        }
+
         return "GET".equalsIgnoreCase(method)
                 && (path.startsWith("/api/v1/categorias") || path.startsWith("/api/v1/subcategorias"));
     }
