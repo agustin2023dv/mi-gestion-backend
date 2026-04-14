@@ -1,7 +1,5 @@
 package com.migestion.payments.dto;
 
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,9 +10,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class CreateCheckoutSessionRequest {
+public class CheckoutSessionResponse {
 
-    @NotNull
-    @Positive
-    private Long pedidoId;
+    private String checkoutUrl;
+    private String sessionId;
 }

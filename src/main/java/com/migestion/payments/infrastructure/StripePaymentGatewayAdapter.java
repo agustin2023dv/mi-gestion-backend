@@ -1,9 +1,9 @@
 package com.migestion.payments.infrastructure;
 
 import com.migestion.payments.application.PaymentGateway;
-import com.migestion.payments.dto.CreateCheckoutSessionRequest;
 import com.migestion.payments.dto.CreateCheckoutSessionResponse;
 import com.migestion.payments.dto.HandleWebhookResponse;
+import com.migestion.payments.dto.ProviderCheckoutSessionRequest;
 import com.migestion.payments.dto.RefundRequest;
 import com.migestion.payments.dto.RefundResponse;
 import com.stripe.Stripe;
@@ -26,7 +26,7 @@ public class StripePaymentGatewayAdapter implements PaymentGateway {
     }
 
     @Override
-    public CreateCheckoutSessionResponse createCheckoutSession(CreateCheckoutSessionRequest request) {
+    public CreateCheckoutSessionResponse createCheckoutSession(ProviderCheckoutSessionRequest request) {
         String sessionId = "cs_mock_" + UUID.randomUUID();
         return CreateCheckoutSessionResponse.builder()
                 .sessionId(sessionId)

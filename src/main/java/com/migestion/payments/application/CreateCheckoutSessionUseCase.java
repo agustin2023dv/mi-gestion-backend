@@ -2,8 +2,8 @@ package com.migestion.payments.application;
 
 import com.migestion.orders.domain.Pedido;
 import com.migestion.orders.domain.PedidoRepository;
-import com.migestion.payments.dto.CreateCheckoutSessionRequest;
 import com.migestion.payments.dto.CreateCheckoutSessionResponse;
+import com.migestion.payments.dto.ProviderCheckoutSessionRequest;
 import com.migestion.shared.exception.BusinessRuleViolationException;
 import com.migestion.shared.exception.ResourceNotFoundException;
 import com.migestion.shared.security.TenantContext;
@@ -47,7 +47,7 @@ public class CreateCheckoutSessionUseCase {
             );
         }
 
-        CreateCheckoutSessionRequest request = CreateCheckoutSessionRequest.builder()
+        ProviderCheckoutSessionRequest request = ProviderCheckoutSessionRequest.builder()
                 .tenantId(tenantId)
                 .referenceType("pedido")
                 .referenceId(pedidoId)
