@@ -5,6 +5,8 @@ import com.migestion.catalog.domain.ProductoRepository;
 import com.migestion.orders.domain.EstadoPedido;
 import com.migestion.orders.domain.EstadoPedidoRepository;
 import com.migestion.orders.domain.Pedido;
+import com.migestion.orders.domain.PedidoEstadoHistorial;
+import com.migestion.orders.domain.PedidoEstadoHistorialRepository;
 import com.migestion.orders.domain.PedidoItem;
 import com.migestion.orders.domain.PedidoItemRepository;
 import com.migestion.orders.domain.PedidoRepository;
@@ -36,33 +38,40 @@ public class CreateOrderUseCase {
 
     private static final DateTimeFormatter ORDER_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final int MAX_ORDER_NUMBER_ATTEMPTS = 10;
+    private static final String TRACKING_BASE_URL = "https://app.migestion.com/track/";
 
     private final PedidoRepository pedidoRepository;
     private final PedidoItemRepository pedidoItemRepository;
     private final EstadoPedidoRepository estadoPedidoRepository;
+    private final PedidoEstadoHistorialRepository pedidoEstadoHistorialRepository;
     private final ProductoRepository productoRepository;
     private final StockVerificationPort stockVerificationPort;
     private final StockReservationPort stockReservationPort;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final NotificationPort notificationPort;
     private final PedidoMapper pedidoMapper;
 
     public CreateOrderUseCase(
             PedidoRepository pedidoRepository,
             PedidoItemRepository pedidoItemRepository,
             EstadoPedidoRepository estadoPedidoRepository,
+            PedidoEstadoHistorialRepository pedidoEstadoHistorialRepository,
             ProductoRepository productoRepository,
             StockVerificationPort stockVerificationPort,
             StockReservationPort stockReservationPort,
             ApplicationEventPublisher applicationEventPublisher,
+            NotificationPort notificationPort,
             PedidoMapper pedidoMapper
     ) {
         this.pedidoRepository = pedidoRepository;
         this.pedidoItemRepository = pedidoItemRepository;
         this.estadoPedidoRepository = estadoPedidoRepository;
+        this.pedidoEstadoHistorialRepository = pedidoEstadoHistorialRepository;
         this.productoRepository = productoRepository;
         this.stockVerificationPort = stockVerificationPort;
         this.stockReservationPort = stockReservationPort;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.notificationPort = notificationPort;
         this.pedidoMapper = pedidoMapper;
     }
 
@@ -139,6 +148,13 @@ public class CreateOrderUseCase {
             Pedido savedPedido = pedidoRepository.save(pedido);
             List<PedidoItem> savedItems = persistItems(savedPedido.getId(), transientItems);
 
+            pedidoEstadoHistorialRepository.save(PedidoEstadoHistorial.builder()
+                    .pedidoId(savedPedido.getId())
+                    .estado(estadoInicial)
+                    .fechaCambio(savedPedido.getFechaPedido())
+                    .notas("Pedido creado")
+                    .build());
+
             reserveStock(request.items());
 
             applicationEventPublisher.publishEvent(
@@ -151,6 +167,12 @@ public class CreateOrderUseCase {
                             .occurredAt(Instant.now())
                             .build()
             );
+
+            String clienteNombre = request.cliente() != null ? request.cliente().nombre() : "Cliente";
+            String clienteTelefono = request.cliente() != null ? request.cliente().telefono() : "";
+            String trackingUrl = TRACKING_BASE_URL + savedPedido.getTrackingToken();
+            notificationPort.notifyOrderCreated(clienteNombre, clienteTelefono,
+                    savedPedido.getNumeroPedido(), savedPedido.getTotal(), trackingUrl);
 
             return pedidoMapper.toResponse(savedPedido, savedItems);
         } finally {

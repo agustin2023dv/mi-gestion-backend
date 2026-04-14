@@ -1,6 +1,7 @@
 package com.migestion.orders.infrastructure.mapper;
 
 import com.migestion.orders.domain.Pedido;
+import com.migestion.orders.domain.PedidoEstadoHistorial;
 import com.migestion.orders.domain.PedidoItem;
 import com.migestion.orders.dto.PedidoResponse;
 import com.migestion.orders.dto.PedidoTrackingResponse;
@@ -23,8 +24,12 @@ public interface PedidoMapper {
     @Mapping(target = "precioExtras", source = "precioExtrasSnapshot")
     PedidoResponse.ItemPedidoResponse toItemResponse(PedidoItem item);
 
-    @Mapping(target = "estadoActual", source = "estado.codigo")
-    @Mapping(target = "historial", ignore = true)
+    @Mapping(target = "estadoActual", source = "pedido.estado.codigo")
+    @Mapping(target = "historial", source = "historial")
     @Mapping(target = "repartidor", ignore = true)
-    PedidoTrackingResponse toTrackingResponse(Pedido pedido);
+    PedidoTrackingResponse toTrackingResponse(Pedido pedido, List<PedidoEstadoHistorial> historial);
+
+    @Mapping(target = "estado", source = "estado.codigo")
+    @Mapping(target = "fecha", source = "fechaCambio")
+    PedidoTrackingResponse.TrackingEstadoResponse toTrackingEstadoResponse(PedidoEstadoHistorial historial);
 }
