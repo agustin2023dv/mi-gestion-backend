@@ -60,6 +60,10 @@ public class Producto extends BaseEntity {
     @Builder.Default
     private Integer stock = 0;
 
+    @Column(name = "stock_reservado", nullable = false)
+    @Builder.Default
+    private Integer stockReservado = 0;
+
     @Column(name = "stock_minimo", nullable = false)
     @Builder.Default
     private Integer stockMinimo = 0;
