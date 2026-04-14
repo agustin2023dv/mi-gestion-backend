@@ -114,7 +114,7 @@ public class JwtTokenProvider {
                 .subject(String.valueOf(userId))
                 .id(jti)
                 .claim(TENANT_ID_CLAIM, tenantId)
-            .claim(ROLE_CLAIM, normalizedRole)
+                .claim(ROLE_CLAIM, normalizedRole)
                 .claim(PERMISSIONS_CLAIM, permissions)
                 .claim(Claims.ID, jti)
                 .issuedAt(Date.from(now))
