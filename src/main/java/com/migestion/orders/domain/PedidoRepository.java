@@ -11,4 +11,6 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     List<Pedido> findAllByTenantId(Long tenantId);
 
     boolean existsByIdempotencyKey(String idempotencyKey);
+
+    boolean existsByNumeroPedido(String numeroPedido);
 }
