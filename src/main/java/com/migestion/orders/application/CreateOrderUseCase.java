@@ -67,8 +67,17 @@ public class CreateOrderUseCase {
     }
 
     @Transactional
-    public PedidoResponse execute(CreatePedidoRequest request, Long tenantId) {
+    public PedidoResponse execute(CreatePedidoRequest request, Long tenantId, String idempotencyKey) {
         validateInput(request, tenantId);
+
+        if (StringUtils.hasText(idempotencyKey) && pedidoRepository.existsByIdempotencyKey(idempotencyKey)) {
+            Pedido existing = pedidoRepository.findByIdempotencyKey(idempotencyKey)
+                    .orElseThrow(() -> new BusinessRuleViolationException(
+                            "IDEMPOTENCY_KEY_CONFLICT",
+                            "Idempotency key already used with a different payload"));
+            List<PedidoItem> existingItems = pedidoItemRepository.findAllByPedidoId(existing.getId());
+            return pedidoMapper.toResponse(existing, existingItems);
+        }
 
         Long previousTenantId = TenantContext.getTenantId();
         TenantContext.setTenantId(tenantId);
@@ -107,6 +116,7 @@ public class CreateOrderUseCase {
             Pedido pedido = Pedido.builder()
                     .tenantId(tenantId)
                     .clienteId(null)
+                    .idempotencyKey(idempotencyKey)
                     .direccionEntregaId(request.direccionEntregaId())
                     .estado(estadoInicial)
                     .tarifaDeliveryId(request.tarifaDeliveryId())
