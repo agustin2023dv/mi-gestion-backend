@@ -1,9 +1,11 @@
 package com.migestion.finance.infrastructure.mapper;
 
+import com.migestion.finance.domain.AsignacionCostoIndirecto;
 import com.migestion.finance.domain.CategoriaGasto;
 import com.migestion.finance.domain.CentroCosto;
 import com.migestion.finance.domain.CriterioProrrateo;
 import com.migestion.finance.domain.GastoOperativo;
+import com.migestion.finance.dto.AsignacionCostoIndirectoResponse;
 import com.migestion.finance.dto.CategoriaGastoRequest;
 import com.migestion.finance.dto.CategoriaGastoResponse;
 import com.migestion.finance.dto.CentroCostoRequest;
@@ -17,6 +19,8 @@ import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring", builder = @Builder(disableBuilder = true))
 public interface FinanceMapper {
+
+    AsignacionCostoIndirectoResponse toAsignacionCostoIndirectoResponse(AsignacionCostoIndirecto asignacionCostoIndirecto);
 
     CentroCosto toCentroCosto(CentroCostoRequest request);
 
