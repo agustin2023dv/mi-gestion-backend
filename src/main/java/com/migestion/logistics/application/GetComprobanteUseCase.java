@@ -16,8 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class GetComprobanteUseCase {
 
-    private static final String PDF_URL_PREFIX = "https://s3.migestion.com/comprobantes/";
-
     private final ComprobanteEntregaRepository comprobanteEntregaRepository;
     private final EntregaRepository entregaRepository;
     private final LogisticsMapper logisticsMapper;
@@ -52,13 +50,8 @@ public class GetComprobanteUseCase {
                         .fechaEntrega(Instant.now())
                         .build();
 
-                String pdfFileName = String.format("comprobante_%d_%d.pdf", entregaId, Instant.now().toEpochMilli());
                 comprobante = comprobanteEntregaRepository.save(comprobante);
             }
-
-            String pdfUrl = comprobante.getPdfUrl() != null
-                    ? comprobante.getPdfUrl()
-                    : generatePdfUrl(entregaId, comprobante.getHashCriptografico());
 
             return logisticsMapper.toResponse(comprobante);
         } finally {
@@ -70,7 +63,4 @@ public class GetComprobanteUseCase {
         return UUID.randomUUID().toString().replaceAll("-", "");
     }
 
-    private String generatePdfUrl(Long entregaId, String hash) {
-        return PDF_URL_PREFIX + "entrega_" + entregaId + "_" + hash + ".pdf";
-    }
 }
