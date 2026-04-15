@@ -1,5 +1,6 @@
 package com.migestion.payments.application;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.migestion.orders.domain.Pedido;
@@ -84,8 +85,8 @@ public class HandleStripeWebhookUseCase {
         pago.setMoneda(currency);
         pago.setEstado("PAID");
         pago.setFechaProcesamiento(Instant.now());
-        pago.setDetallePago(objectMapper.convertValue(eventObject, Map.class));
-        pago.setRespuestaProvider(objectMapper.convertValue(root, Map.class));
+        pago.setDetallePago(convertToMap(eventObject));
+        pago.setRespuestaProvider(convertToMap(root));
 
         Pago savedPago = pagoRepository.save(pago);
 
@@ -170,5 +171,10 @@ public class HandleStripeWebhookUseCase {
         } catch (NumberFormatException ex) {
             throw new BusinessRuleViolationException(errorCode, "Invalid numeric value: " + value);
         }
+    }
+
+    private Map<String, Object> convertToMap(JsonNode node) {
+        return objectMapper.convertValue(node, new TypeReference<Map<String, Object>>() {
+        });
     }
 }

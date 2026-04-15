@@ -4,6 +4,7 @@ import com.migestion.platform.dto.JwtResponse;
 import com.migestion.platform.dto.LoginRequest;
 import com.migestion.platform.dto.RegisterClienteRequest;
 import com.migestion.shared.exception.BusinessRuleViolationException;
+import com.migestion.shared.infrastructure.SubdomainTenantResolver;
 import com.migestion.shared.security.AuthenticatedUserDetails;
 import com.migestion.shared.security.JwtTokenProvider;
 import com.migestion.tenant.domain.Cliente;
@@ -34,6 +35,7 @@ public class AuthService {
   private final JwtTokenProvider jwtTokenProvider;
   private final ClienteRepository clienteRepository;
   private final PasswordEncoder passwordEncoder;
+  private final SubdomainTenantResolver subdomainTenantResolver;
 
   /**
    * Authenticates a user with email and password.
@@ -194,10 +196,11 @@ public class AuthService {
       return providedTenantId;
     }
 
-    // TODO: Resolve tenant from subdomain or context if not provided
-    throw new BusinessRuleViolationException(
-        "TENANT_RESOLUTION_FAILED",
-        "Tenant ID must be provided or resolvable from context"
-    );
+    // Resolve from: subdomain → X-Tenant-Slug header → tenantSlug query param
+    return subdomainTenantResolver.resolve()
+        .orElseThrow(() -> new BusinessRuleViolationException(
+            "TENANT_RESOLUTION_FAILED",
+            "Tenant could not be resolved from subdomain, X-Tenant-Slug header, or tenantSlug parameter"
+        ));
   }
 }
