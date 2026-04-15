@@ -1,15 +1,9 @@
 package com.migestion.notifications.application;
 
-import com.migestion.notifications.domain.Notificacion;
 import com.migestion.notifications.domain.NotificacionRepository;
-import com.migestion.notifications.dto.NotificacionResponse;
-import com.migestion.notifications.dto.PageResponse;
-import com.migestion.notifications.infrastructure.NotificationMapper;
 import com.migestion.shared.exception.BusinessRuleViolationException;
 import com.migestion.shared.security.AuthenticatedUserDetails;
 import com.migestion.shared.security.TenantContext;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -18,42 +12,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class GetUserNotificationsUseCase {
+public class MarkAllNotificationsAsReadUseCase {
 
     private final NotificacionRepository notificacionRepository;
-    private final NotificationMapper notificationMapper;
 
-    public GetUserNotificationsUseCase(
-            NotificacionRepository notificacionRepository,
-            NotificationMapper notificationMapper) {
+    public MarkAllNotificationsAsReadUseCase(NotificacionRepository notificacionRepository) {
         this.notificacionRepository = notificacionRepository;
-        this.notificationMapper = notificationMapper;
     }
 
-    @Transactional(readOnly = true)
-    public PageResponse<NotificacionResponse> execute(Pageable pageable) {
+    @Transactional
+    public int execute() {
         Long tenantId = requireTenantId();
         Authentication authentication = requireAuthentication();
         Long currentUserId = resolveCurrentUserId(authentication);
         String currentUserRole = resolveCurrentUserRole(authentication);
 
-        Page<Notificacion> notifications =
-                notificacionRepository.findByTenantIdAndUsuarioIdAndUsuarioTipoOrderByCreatedAtDesc(
-                        tenantId,
-                        currentUserId,
-                        currentUserRole,
-                        pageable);
-
-        Page<NotificacionResponse> responsePage = notifications.map(notificationMapper::toResponse);
-        return PageResponse.<NotificacionResponse>builder()
-                .content(responsePage.getContent())
-                .pageNumber(responsePage.getNumber())
-                .pageSize(responsePage.getSize())
-                .totalElements(responsePage.getTotalElements())
-                .totalPages(responsePage.getTotalPages())
-                .hasNext(responsePage.hasNext())
-                .hasPrevious(responsePage.hasPrevious())
-                .build();
+        return notificacionRepository.markAllAsRead(tenantId, currentUserId, currentUserRole);
     }
 
     private Long requireTenantId() {

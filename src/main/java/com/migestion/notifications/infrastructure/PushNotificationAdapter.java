@@ -17,8 +17,9 @@ public class PushNotificationAdapter implements ChannelNotificationAdapter {
 
     @Override
     public void send(NotificationRequest request) {
-        log.info("[Push simulation] Device/User: {} | Title: {} | Message: {}",
-                request.destinatario(),
+        log.info("[Push simulation] UserId: {} | UserType: {} | Title: {} | Message: {}",
+            request.usuarioId(),
+            request.usuarioTipo(),
                 request.titulo(),
                 request.mensaje());
     }

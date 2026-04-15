@@ -2,15 +2,15 @@ package com.migestion.notifications.infrastructure;
 
 import com.migestion.notifications.domain.ConfiguracionNotificacion;
 import com.migestion.notifications.domain.Notificacion;
-import com.migestion.notifications.dto.NotificationPreferencesResponse;
-import com.migestion.notifications.dto.NotificationResponse;
+import com.migestion.notifications.dto.ConfiguracionNotificacionResponse;
+import com.migestion.notifications.dto.NotificacionResponse;
 import org.mapstruct.Builder;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring", builder = @Builder(disableBuilder = true))
 public interface NotificationMapper {
 
-    NotificationResponse toResponse(Notificacion notificacion);
+    NotificacionResponse toResponse(Notificacion notificacion);
 
-    NotificationPreferencesResponse toResponse(ConfiguracionNotificacion configuracionNotificacion);
+    ConfiguracionNotificacionResponse toResponse(ConfiguracionNotificacion configuracionNotificacion);
 }

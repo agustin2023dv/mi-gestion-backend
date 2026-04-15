@@ -17,8 +17,9 @@ public class EmailNotificationAdapter implements ChannelNotificationAdapter {
 
     @Override
     public void send(NotificationRequest request) {
-        log.info("[Email simulation] To: {} | Subject: {} | Message: {}",
-                request.destinatario(),
+        log.info("[Email simulation] UserId: {} | UserType: {} | Subject: {} | Message: {}",
+            request.usuarioId(),
+            request.usuarioTipo(),
                 request.titulo(),
                 request.mensaje());
     }

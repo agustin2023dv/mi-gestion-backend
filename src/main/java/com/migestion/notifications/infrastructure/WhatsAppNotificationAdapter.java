@@ -17,8 +17,9 @@ public class WhatsAppNotificationAdapter implements ChannelNotificationAdapter {
 
     @Override
     public void send(NotificationRequest request) {
-        log.info("[WhatsApp simulation] To: {} | Message: {}",
-                request.destinatario(),
+        log.info("[WhatsApp simulation] UserId: {} | UserType: {} | Message: {}",
+            request.usuarioId(),
+            request.usuarioTipo(),
                 request.mensaje());
     }
 }
