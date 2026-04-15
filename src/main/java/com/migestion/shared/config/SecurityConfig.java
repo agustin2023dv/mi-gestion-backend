@@ -33,9 +33,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/productos/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categorias/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/firmas/*").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/v1/firmas/*/verify").permitAll()
                         .requestMatchers("/api/v1/pedidos/track/**").permitAll()
-                    .requestMatchers("/api/v1/superadmin/**").hasRole("SUPERADMIN")
-                    .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/api/v1/pagos/webhook").permitAll()
+                        .requestMatchers("/api/v1/superadmin/**").hasRole("SUPERADMIN")
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -53,6 +53,9 @@ public class UsuarioTenant extends BaseEntity {
     @Column(name = "sexo", length = 20)
     private String sexo;
 
+    @Column(name = "direccion_id")
+    private Long direccionId;
+
     @Column(name = "rol", nullable = false, length = 50)
     @Builder.Default
     private String rol = "admin";
