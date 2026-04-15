@@ -48,6 +48,7 @@ public class CreateOrderUseCase {
     private final StockVerificationPort stockVerificationPort;
     private final StockReservationPort stockReservationPort;
     private final CuponValidationPort cuponValidationPort;
+    private final DeliveryCostPort deliveryCostPort;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final NotificationPort notificationPort;
     private final PedidoMapper pedidoMapper;
@@ -61,6 +62,7 @@ public class CreateOrderUseCase {
             StockVerificationPort stockVerificationPort,
             StockReservationPort stockReservationPort,
             CuponValidationPort cuponValidationPort,
+            DeliveryCostPort deliveryCostPort,
             ApplicationEventPublisher applicationEventPublisher,
             NotificationPort notificationPort,
             PedidoMapper pedidoMapper
@@ -73,6 +75,7 @@ public class CreateOrderUseCase {
         this.stockVerificationPort = stockVerificationPort;
         this.stockReservationPort = stockReservationPort;
         this.cuponValidationPort = cuponValidationPort;
+        this.deliveryCostPort = deliveryCostPort;
         this.applicationEventPublisher = applicationEventPublisher;
         this.notificationPort = notificationPort;
         this.pedidoMapper = pedidoMapper;
@@ -108,7 +111,7 @@ public class CreateOrderUseCase {
                     .setScale(2, RoundingMode.HALF_UP);
 
             BigDecimal impuestos = calculateImpuestos(subtotal);
-            BigDecimal costoEnvio = calculateCostoEnvio(request);
+            BigDecimal costoEnvio = calculateCostoEnvio(request, tenantId);
             BigDecimal baseTotalAntesDeDescuentos = subtotal.add(impuestos).add(costoEnvio);
             CuponValidationPort.CuponValidationResult cuponAplicado = resolveCoupon(request, baseTotalAntesDeDescuentos);
 
@@ -308,8 +311,19 @@ public class CreateOrderUseCase {
         return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal calculateCostoEnvio(CreatePedidoRequest request) {
-        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    private BigDecimal calculateCostoEnvio(CreatePedidoRequest request, Long tenantId) {
+        if (!"domicilio".equalsIgnoreCase(request.tipoEntrega())) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        if (request.direccionEntregaId() == null) {
+            throw new BusinessRuleViolationException(
+                    "DELIVERY_ADDRESS_REQUIRED",
+                    "direccionEntregaId is required when tipoEntrega is domicilio"
+            );
+        }
+
+        return defaultMoney(deliveryCostPort.calculateDeliveryCost(tenantId, request.direccionEntregaId()));
     }
 
     private BigDecimal calculateDescuentoInicial(CreatePedidoRequest request, BigDecimal subtotal) {
