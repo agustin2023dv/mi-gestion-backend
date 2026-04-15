@@ -109,10 +109,10 @@ public class CreateOrderUseCase {
 
             BigDecimal impuestos = calculateImpuestos(subtotal);
             BigDecimal costoEnvio = calculateCostoEnvio(request);
-                BigDecimal baseTotalAntesDeDescuentos = subtotal.add(impuestos).add(costoEnvio);
-                CuponValidationPort.CuponValidationResult cuponAplicado = resolveCoupon(request, baseTotalAntesDeDescuentos);
+            BigDecimal baseTotalAntesDeDescuentos = subtotal.add(impuestos).add(costoEnvio);
+            CuponValidationPort.CuponValidationResult cuponAplicado = resolveCoupon(request, baseTotalAntesDeDescuentos);
 
-                BigDecimal descuentoInicial = cuponAplicado != null
+            BigDecimal descuentoInicial = cuponAplicado != null
                     ? defaultMoney(cuponAplicado.getMontoDescuento())
                     : calculateDescuentoInicial(request, subtotal);
             BigDecimal descuentoAdicional = calculateDescuentoAdicional(request, subtotal);
