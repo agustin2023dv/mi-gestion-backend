@@ -14,13 +14,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class StripePaymentGatewayAdapter implements PaymentGateway {
 
-    private final String stripeApiKey;
     private final String stripeWebhookSecret;
 
     public StripePaymentGatewayAdapter(
             @Value("${stripe.api-key}") String stripeApiKey,
             @Value("${stripe.webhook-secret}") String stripeWebhookSecret) {
-        this.stripeApiKey = stripeApiKey;
         this.stripeWebhookSecret = stripeWebhookSecret;
         Stripe.apiKey = stripeApiKey;
     }
