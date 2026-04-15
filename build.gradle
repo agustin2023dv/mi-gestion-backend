@@ -47,6 +47,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
 	testAnnotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 	testAnnotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
 	testAnnotationProcessor 'org.projectlombok:lombok'

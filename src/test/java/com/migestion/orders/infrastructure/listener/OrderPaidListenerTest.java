@@ -7,6 +7,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.migestion.notifications.application.SendNotificationUseCase;
+import com.migestion.orders.application.DeliveryCreationPort;
 import com.migestion.orders.domain.EstadoPedido;
 import com.migestion.orders.domain.EstadoPedidoRepository;
 import com.migestion.orders.domain.Pedido;
@@ -14,6 +16,8 @@ import com.migestion.orders.domain.PedidoEstadoHistorial;
 import com.migestion.orders.domain.PedidoEstadoHistorialRepository;
 import com.migestion.orders.domain.PedidoRepository;
 import com.migestion.orders.domain.event.OrderPaidEvent;
+import com.migestion.tenant.domain.TenantRepository;
+import com.migestion.tenant.domain.UsuarioTenantRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -22,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class OrderPaidListenerTest {
@@ -34,6 +39,21 @@ class OrderPaidListenerTest {
 
     @Mock
     private PedidoEstadoHistorialRepository pedidoEstadoHistorialRepository;
+
+    @Mock
+    private DeliveryCreationPort deliveryCreationPort;
+
+    @Mock
+    private SendNotificationUseCase sendNotificationUseCase;
+
+    @Mock
+    private TenantRepository tenantRepository;
+
+    @Mock
+    private UsuarioTenantRepository usuarioTenantRepository;
+
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @InjectMocks
     private OrderPaidListener orderPaidListener;
