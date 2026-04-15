@@ -87,11 +87,11 @@ public class PedidoController {
     }
 
     /**
-     * GET /api/v1/pedidos/track/{token}
-     * Public endpoint to track an order by its tracking token.
+     * GET /api/v1/pedidos/rastreos/{token}
+     * Public endpoint to retrieve order tracking info by its tracking token.
      * Visibility is controlled by the tenant's visibilidadPublica setting (enforced by TenantFilter).
      */
-    @GetMapping("/track/{token}")
+    @GetMapping("/rastreos/{token}")
     public ResponseEntity<ApiResponse<PedidoTrackingResponse>> track(@PathVariable String token) {
         PedidoTrackingResponse response = trackPedidoUseCase.execute(token);
         return ResponseEntity.ok(ApiResponse.success(response));
