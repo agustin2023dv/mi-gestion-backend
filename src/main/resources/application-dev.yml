@@ -12,3 +12,7 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+
+stripe:
+  api-key: ${STRIPE_API_KEY:sk_test_mock}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_mock}
