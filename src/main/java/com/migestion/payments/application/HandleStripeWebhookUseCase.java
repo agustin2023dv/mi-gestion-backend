@@ -2,8 +2,6 @@ package com.migestion.payments.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.migestion.orders.domain.EstadoPedido;
-import com.migestion.orders.domain.EstadoPedidoRepository;
 import com.migestion.orders.domain.Pedido;
 import com.migestion.orders.domain.PedidoRepository;
 import com.migestion.orders.domain.event.OrderPaidEvent;
@@ -14,9 +12,7 @@ import com.migestion.shared.exception.BusinessRuleViolationException;
 import com.migestion.shared.exception.ResourceNotFoundException;
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +26,6 @@ public class HandleStripeWebhookUseCase {
     private final PaymentGateway paymentGateway;
     private final PagoRepository pagoRepository;
     private final PedidoRepository pedidoRepository;
-    private final EstadoPedidoRepository estadoPedidoRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final ObjectMapper objectMapper;
 
@@ -38,14 +33,12 @@ public class HandleStripeWebhookUseCase {
             PaymentGateway paymentGateway,
             PagoRepository pagoRepository,
             PedidoRepository pedidoRepository,
-            EstadoPedidoRepository estadoPedidoRepository,
             ApplicationEventPublisher applicationEventPublisher,
             ObjectMapper objectMapper
     ) {
         this.paymentGateway = paymentGateway;
         this.pagoRepository = pagoRepository;
         this.pedidoRepository = pedidoRepository;
-        this.estadoPedidoRepository = estadoPedidoRepository;
         this.applicationEventPublisher = applicationEventPublisher;
         this.objectMapper = objectMapper;
     }
@@ -96,18 +89,12 @@ public class HandleStripeWebhookUseCase {
 
         Pago savedPago = pagoRepository.save(pago);
 
-        pedido.setEstadoPago("pagado");
-        resolveConfirmedOrderState().ifPresent(pedido::setEstado);
-        pedidoRepository.save(pedido);
-
         applicationEventPublisher.publishEvent(
                 OrderPaidEvent.builder()
                         .pedidoId(pedido.getId())
                         .tenantId(pedido.getTenantId())
-                        .pagoId(savedPago.getId())
+                        .monto(savedPago.getMonto())
                         .transactionId(savedPago.getTransactionId())
-                        .amount(savedPago.getMonto())
-                        .occurredAt(Instant.now())
                         .build()
         );
 
@@ -175,17 +162,6 @@ public class HandleStripeWebhookUseCase {
             return paymentMethodsNode.get(0).asText("card");
         }
         return "card";
-    }
-
-    private Optional<EstadoPedido> resolveConfirmedOrderState() {
-        List<String> possibleCodes = List.of("CONFIRMED", "CONFIRMADO", "confirmed", "confirmado");
-        for (String code : possibleCodes) {
-            Optional<EstadoPedido> estado = estadoPedidoRepository.findByCodigo(code);
-            if (estado.isPresent()) {
-                return estado;
-            }
-        }
-        return Optional.empty();
     }
 
     private Long parseLong(String value, String errorCode) {
