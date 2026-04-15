@@ -1,5 +1,6 @@
 package com.migestion.finance.infrastructure.mapper;
 
+import com.migestion.analytics.domain.SimuladorEscenario;
 import com.migestion.finance.domain.AsignacionCostoIndirecto;
 import com.migestion.finance.domain.CategoriaGasto;
 import com.migestion.finance.domain.CentroCosto;
@@ -14,8 +15,10 @@ import com.migestion.finance.dto.CreateGastoOperativoRequest;
 import com.migestion.finance.dto.CriterioProrrateoRequest;
 import com.migestion.finance.dto.CriterioProrrateoResponse;
 import com.migestion.finance.dto.GastoOperativoResponse;
+import com.migestion.finance.dto.SimuladorEscenarioResponse;
 import org.mapstruct.Builder;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring", builder = @Builder(disableBuilder = true))
 public interface FinanceMapper {
@@ -37,4 +40,7 @@ public interface FinanceMapper {
     GastoOperativo toGastoOperativo(CreateGastoOperativoRequest request);
 
     GastoOperativoResponse toGastoOperativoResponse(GastoOperativo gastoOperativo);
+
+    @Mapping(target = "isSaved", source = "saved")
+    SimuladorEscenarioResponse toSimuladorEscenarioResponse(SimuladorEscenario simuladorEscenario);
 }
