@@ -21,8 +21,9 @@ import com.migestion.finance.dto.SimuladorEscenarioResponse;
 import org.mapstruct.Builder;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 
-@Mapper(componentModel = "spring", builder = @Builder(disableBuilder = true))
+@Mapper(componentModel = "spring", builder = @Builder(disableBuilder = true), unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface FinanceMapper {
 
     AsignacionCostoIndirectoResponse toAsignacionCostoIndirectoResponse(AsignacionCostoIndirecto asignacionCostoIndirecto);
