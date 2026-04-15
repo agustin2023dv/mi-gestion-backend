@@ -4,7 +4,6 @@ import com.migestion.marketing.domain.ResenaTenantRepository;
 import com.migestion.marketing.dto.ReviewResponse;
 import com.migestion.marketing.infrastructure.mapper.ReviewMapper;
 import com.migestion.platform.dto.PageResponse;
-import com.migestion.shared.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,8 +18,7 @@ public class GetTenantReviewsUseCase {
     private final ResenaTenantRepository resenaTenantRepository;
     private final ReviewMapper reviewMapper;
 
-    public PageResponse<ReviewResponse> execute(Pageable pageable) {
-        Long tenantId = requireTenantId();
+    public PageResponse<ReviewResponse> execute(Long tenantId, Pageable pageable) {
         Page<ReviewResponse> page = resenaTenantRepository
                 .findByTenantIdAndIsPublishedTrue(tenantId, pageable)
                 .map(reviewMapper::toReviewResponse);
@@ -38,12 +36,5 @@ public class GetTenantReviewsUseCase {
                 .hasPrevious(page.hasPrevious())
                 .build();
     }
-
-    private Long requireTenantId() {
-        Long tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            throw new IllegalArgumentException("Tenant ID not found in context");
-        }
-        return tenantId;
-    }
 }
+
