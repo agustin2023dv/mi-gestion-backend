@@ -17,8 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ActualizarEstadoEntregaUseCase {
 
-    private static final double GEOLOCATION_VALIDATION_DISTANCE_KM = 0.5;
-
     private final EntregaRepository entregaRepository;
     private final LogisticsMapper logisticsMapper;
     private final ApplicationEventPublisher applicationEventPublisher;
