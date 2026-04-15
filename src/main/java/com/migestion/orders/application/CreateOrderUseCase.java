@@ -47,6 +47,7 @@ public class CreateOrderUseCase {
     private final ProductoRepository productoRepository;
     private final StockVerificationPort stockVerificationPort;
     private final StockReservationPort stockReservationPort;
+    private final CuponValidationPort cuponValidationPort;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final NotificationPort notificationPort;
     private final PedidoMapper pedidoMapper;
@@ -59,6 +60,7 @@ public class CreateOrderUseCase {
             ProductoRepository productoRepository,
             StockVerificationPort stockVerificationPort,
             StockReservationPort stockReservationPort,
+            CuponValidationPort cuponValidationPort,
             ApplicationEventPublisher applicationEventPublisher,
             NotificationPort notificationPort,
             PedidoMapper pedidoMapper
@@ -70,6 +72,7 @@ public class CreateOrderUseCase {
         this.productoRepository = productoRepository;
         this.stockVerificationPort = stockVerificationPort;
         this.stockReservationPort = stockReservationPort;
+        this.cuponValidationPort = cuponValidationPort;
         this.applicationEventPublisher = applicationEventPublisher;
         this.notificationPort = notificationPort;
         this.pedidoMapper = pedidoMapper;
@@ -106,7 +109,12 @@ public class CreateOrderUseCase {
 
             BigDecimal impuestos = calculateImpuestos(subtotal);
             BigDecimal costoEnvio = calculateCostoEnvio(request);
-            BigDecimal descuentoInicial = calculateDescuentoInicial(request, subtotal);
+                BigDecimal baseTotalAntesDeDescuentos = subtotal.add(impuestos).add(costoEnvio);
+                CuponValidationPort.CuponValidationResult cuponAplicado = resolveCoupon(request, baseTotalAntesDeDescuentos);
+
+                BigDecimal descuentoInicial = cuponAplicado != null
+                    ? defaultMoney(cuponAplicado.getMontoDescuento())
+                    : calculateDescuentoInicial(request, subtotal);
             BigDecimal descuentoAdicional = calculateDescuentoAdicional(request, subtotal);
             BigDecimal total = subtotal
                     .add(impuestos)
@@ -147,6 +155,14 @@ public class CreateOrderUseCase {
 
             Pedido savedPedido = pedidoRepository.save(pedido);
             List<PedidoItem> savedItems = persistItems(savedPedido.getId(), transientItems);
+
+            if (cuponAplicado != null) {
+                cuponValidationPort.registerCouponUsage(
+                        savedPedido.getId(),
+                        cuponAplicado.getCuponId(),
+                        descuentoInicial
+                );
+            }
 
             pedidoEstadoHistorialRepository.save(PedidoEstadoHistorial.builder()
                     .pedidoId(savedPedido.getId())
@@ -298,6 +314,17 @@ public class CreateOrderUseCase {
 
     private BigDecimal calculateDescuentoInicial(CreatePedidoRequest request, BigDecimal subtotal) {
         return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private CuponValidationPort.CuponValidationResult resolveCoupon(
+            CreatePedidoRequest request,
+            BigDecimal montoPedido
+    ) {
+        if (!StringUtils.hasText(request.cuponCodigo())) {
+            return null;
+        }
+
+        return cuponValidationPort.validateCoupon(request.cuponCodigo(), defaultMoney(montoPedido));
     }
 
     private BigDecimal calculateDescuentoAdicional(CreatePedidoRequest request, BigDecimal subtotal) {
