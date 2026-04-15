@@ -61,7 +61,7 @@ public class PagoController {
         this.defaultCancelUrl = defaultCancelUrl;
     }
 
-    @PostMapping("/create-checkout-session")
+    @PostMapping("/sesiones-checkout")
     public ResponseEntity<ApiResponse<CheckoutSessionResponse>> createCheckoutSession(
             @Valid @RequestBody CreateCheckoutSessionRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
@@ -92,7 +92,7 @@ public class PagoController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping("/{pagoId}/reembolsar")
+    @PostMapping("/{pagoId}/reembolsos")
     public ResponseEntity<ApiResponse<PagoResponse>> reembolsar(
             @PathVariable Long pagoId,
             @RequestBody(required = false) ReembolsarPagoRequest request,

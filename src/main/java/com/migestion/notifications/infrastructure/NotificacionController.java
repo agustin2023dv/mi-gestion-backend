@@ -7,6 +7,7 @@ import com.migestion.notifications.application.MarkNotificationAsReadUseCase;
 import com.migestion.notifications.application.SendNotificationUseCase;
 import com.migestion.notifications.application.UpdateNotificationPreferencesUseCase;
 import com.migestion.notifications.dto.ConfiguracionNotificacionResponse;
+import com.migestion.notifications.dto.MarkNotificacionRequest;
 import com.migestion.notifications.dto.NotificacionResponse;
 import com.migestion.notifications.dto.NotificationRequest;
 import com.migestion.notifications.dto.PageResponse;
@@ -60,13 +61,17 @@ public class NotificacionController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PatchMapping("/{id}/leer")
-    public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long id) {
-        markNotificationAsReadUseCase.execute(id);
+    @PatchMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> markAsRead(
+            @PathVariable Long id,
+            @Valid @RequestBody MarkNotificacionRequest request) {
+        if (Boolean.TRUE.equals(request.leido())) {
+            markNotificationAsReadUseCase.execute(id);
+        }
         return ResponseEntity.ok(ApiResponse.success());
     }
 
-    @PostMapping("/marcar-todas-leidas")
+    @PatchMapping("/leidas")
     public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
         markAllNotificationsAsReadUseCase.execute();
         return ResponseEntity.ok(ApiResponse.success());
@@ -85,7 +90,7 @@ public class NotificacionController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping("/enviar")
+    @PostMapping
     public ResponseEntity<ApiResponse<NotificacionResponse>> enviar(
             @Valid @RequestBody NotificationRequest request,
             Authentication authentication) {
