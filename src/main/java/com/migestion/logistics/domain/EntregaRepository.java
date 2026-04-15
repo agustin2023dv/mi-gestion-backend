@@ -8,5 +8,7 @@ public interface EntregaRepository extends JpaRepository<Entrega, Long> {
 
     Optional<Entrega> findByIdAndTenantId(Long id, Long tenantId);
 
+    boolean existsByPedidoIdAndTenantId(Long pedidoId, Long tenantId);
+
     List<Entrega> findAllByTenantId(Long tenantId);
 }

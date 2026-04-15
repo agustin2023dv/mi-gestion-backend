@@ -1,5 +1,6 @@
 package com.migestion.orders.infrastructure.listener;
 
+import com.migestion.orders.application.DeliveryCreationPort;
 import com.migestion.orders.domain.EstadoPedido;
 import com.migestion.orders.domain.EstadoPedidoRepository;
 import com.migestion.orders.domain.Pedido;
@@ -39,10 +40,12 @@ public class OrderPaidListener {
     private static final String PUSH_CHANNEL = "PUSH";
     private static final String CLIENT_ROLE = "CLIENTE";
     private static final String FALLBACK_ENTREPRENEUR_ROLE = "ADMIN";
+    private static final String HOME_DELIVERY_TYPE = "domicilio";
 
     private final PedidoRepository pedidoRepository;
     private final EstadoPedidoRepository estadoPedidoRepository;
     private final PedidoEstadoHistorialRepository pedidoEstadoHistorialRepository;
+    private final DeliveryCreationPort deliveryCreationPort;
     private final SendNotificationUseCase sendNotificationUseCase;
     private final TenantRepository tenantRepository;
     private final UsuarioTenantRepository usuarioTenantRepository;
@@ -52,6 +55,7 @@ public class OrderPaidListener {
             PedidoRepository pedidoRepository,
             EstadoPedidoRepository estadoPedidoRepository,
             PedidoEstadoHistorialRepository pedidoEstadoHistorialRepository,
+            DeliveryCreationPort deliveryCreationPort,
             SendNotificationUseCase sendNotificationUseCase,
             TenantRepository tenantRepository,
             UsuarioTenantRepository usuarioTenantRepository,
@@ -60,6 +64,7 @@ public class OrderPaidListener {
         this.pedidoRepository = pedidoRepository;
         this.estadoPedidoRepository = estadoPedidoRepository;
         this.pedidoEstadoHistorialRepository = pedidoEstadoHistorialRepository;
+        this.deliveryCreationPort = deliveryCreationPort;
         this.sendNotificationUseCase = sendNotificationUseCase;
         this.tenantRepository = tenantRepository;
         this.usuarioTenantRepository = usuarioTenantRepository;
@@ -96,6 +101,8 @@ public class OrderPaidListener {
                 );
         }
 
+        createDeliveryIfRequired(pedido);
+
         pedidoRepository.save(pedido);
             notifyOrderPaid(pedido, event);
 
@@ -108,6 +115,14 @@ public class OrderPaidListener {
                 pedido.getEstadoPago(),
                 pedido.getEstado().getCodigo()
         );
+    }
+
+    private void createDeliveryIfRequired(Pedido pedido) {
+        if (!isHomeDelivery(pedido.getTipoEntrega())) {
+            return;
+        }
+
+        deliveryCreationPort.createPendingDelivery(pedido.getTenantId(), pedido.getId());
     }
 
     private void notifyOrderPaid(Pedido pedido, OrderPaidEvent event) {
@@ -202,6 +217,10 @@ public class OrderPaidListener {
             return FALLBACK_ENTREPRENEUR_ROLE;
         }
         return userType.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private boolean isHomeDelivery(String tipoEntrega) {
+        return StringUtils.hasText(tipoEntrega) && HOME_DELIVERY_TYPE.equalsIgnoreCase(tipoEntrega.trim());
     }
 
     private boolean isPendingState(EstadoPedido estadoPedido) {
