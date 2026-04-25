@@ -1,66 +1,31 @@
-import { motion } from 'framer-motion';
 import { 
   TrendingUp, 
   Users, 
   ShoppingBag, 
-  ArrowUpRight,
   Plus
 } from 'lucide-react';
 import { Button } from '../../../shared/components/ui/button';
-import { cn } from '../../../shared/utils/cn';
-
-interface StatCardProps {
-  label: string;
-  value: string;
-  trend?: string;
-  icon: any;
-}
-
-const StatCard = ({ label, value, trend, icon: Icon }: StatCardProps) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="bg-white p-8 border border-stone-100 flex flex-col justify-between"
-  >
-    <div className="flex justify-between items-start mb-6">
-      <div className="p-3 bg-stone-50 text-stone-900 rounded-none">
-        <Icon className="w-5 h-5" />
-      </div>
-      {trend && (
-        <span className="flex items-center text-[10px] font-bold text-green-600 tracking-wider">
-          <ArrowUpRight className="w-3 h-3 mr-1" />
-          {trend}
-        </span>
-      )}
-    </div>
-    <div>
-      <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400 mb-1">{label}</p>
-      <h3 className="text-3xl font-serif text-stone-900">{value}</h3>
-    </div>
-  </motion.div>
-);
+import { PageHeader } from '../../../shared/components/ui/page-header';
+import { StatCard } from '../../../shared/components/ui/stat-card';
+import { Badge } from '../../../shared/components/ui/badge';
 
 export default function EntrepreneurDashboard() {
   return (
     <div className="space-y-12">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between space-y-6 md:space-y-0">
-        <div>
-          <h1 className="font-serif text-5xl mb-4 text-stone-900">Buen día, Jane.</h1>
-          <p className="text-stone-500 font-medium max-w-md">Esto es lo que está pasando hoy en tu tienda Maison.</p>
-        </div>
-        <div className="flex space-x-4">
-          <Button variant="outline" className="px-6">Ver Tienda</Button>
-          <Button className="px-6"><Plus className="w-4 h-4 mr-2" /> Nuevo Producto</Button>
-        </div>
-      </div>
+      <PageHeader 
+        title="Buen día, Jane." 
+        description="Esto es lo que está pasando hoy en tu tienda Maison."
+      >
+        <Button variant="outline" className="px-6">Ver Tienda</Button>
+        <Button className="px-6"><Plus className="w-4 h-4 mr-2" /> Nuevo Producto</Button>
+      </PageHeader>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard label="Ventas Totales" value="$12,840" trend="+12.5%" icon={TrendingUp} />
-        <StatCard label="Pedidos Nuevos" value="24" trend="+8.2%" icon={ShoppingBag} />
-        <StatCard label="Clientes Activos" value="1,120" trend="+4.1%" icon={Users} />
-        <StatCard label="Conversión" value="3.2%" icon={TrendingUp} />
+        <StatCard label="Ventas Totales" value="$12,840" trend="+12.5%" icon={TrendingUp} index={0} />
+        <StatCard label="Pedidos Nuevos" value="24" trend="+8.2%" icon={ShoppingBag} index={1} />
+        <StatCard label="Clientes Activos" value="1,120" trend="+4.1%" icon={Users} index={2} />
+        <StatCard label="Conversión" value="3.2%" icon={TrendingUp} index={3} />
       </div>
 
       {/* Content Sections */}
@@ -92,12 +57,7 @@ export default function EntrepreneurDashboard() {
                       </div>
                     </td>
                     <td className="py-5">
-                      <span className={cn(
-                        "inline-flex px-2 py-1 text-[10px] font-bold tracking-widest uppercase",
-                        "bg-stone-100 text-stone-500"
-                      )}>
-                        Procesando
-                      </span>
+                      <Badge>Procesando</Badge>
                     </td>
                     <td className="py-5 text-right font-serif text-lg text-stone-900">$2,450</td>
                   </tr>
