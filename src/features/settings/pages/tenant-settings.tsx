@@ -10,25 +10,25 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
+import { PageHeader } from '../../../shared/components/ui/page-header';
+import { Section } from '../../../shared/components/ui/section';
+import { useFeedback } from '../../../shared/hooks/use-feedback';
 
 export default function TenantSettings() {
   const [primaryColor, setPrimaryColor] = useState('#1c1917');
   const [secondaryColor, setSecondaryColor] = useState('#faf9f6');
-  const [isSaved, setIsSaved] = useState(false);
+  const { isActive: isSaved, trigger: triggerSaved } = useFeedback();
 
   const handleSave = () => {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+    triggerSaved();
   };
 
   return (
     <div className="max-w-4xl space-y-12 pb-20">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="font-serif text-4xl text-stone-900">Configuración</h1>
-          <p className="text-stone-500 font-medium mt-2">Define la identidad de tu marca y canales de venta.</p>
-        </div>
+      <PageHeader 
+        title="Configuración" 
+        description="Define la identidad de tu marca y canales de venta."
+      >
         <Button onClick={handleSave} className="md:w-auto min-w-[160px]">
           <AnimatePresence mode="wait">
             {isSaved ? (
@@ -53,16 +53,11 @@ export default function TenantSettings() {
             )}
           </AnimatePresence>
         </Button>
-      </div>
+      </PageHeader>
 
       <div className="grid grid-cols-1 gap-12">
         {/* Identidad Visual */}
-        <section className="space-y-8 bg-white p-8 border border-stone-100">
-          <div className="flex items-center space-x-3 text-stone-900 border-b border-stone-50 pb-4">
-            <Palette className="w-5 h-5" />
-            <h2 className="text-xs font-bold tracking-[0.2em] uppercase">Identidad Visual</h2>
-          </div>
-
+        <Section title="Identidad Visual" icon={Palette}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             {/* Logo Upload */}
             <div className="space-y-4">
@@ -102,14 +97,10 @@ export default function TenantSettings() {
               </div>
             </div>
           </div>
-        </section>
+        </Section>
 
         {/* Información General */}
-        <section className="space-y-8 bg-white p-8 border border-stone-100">
-          <div className="flex items-center space-x-3 text-stone-900 border-b border-stone-50 pb-4">
-            <Store className="w-5 h-5" />
-            <h2 className="text-xs font-bold tracking-[0.2em] uppercase">Información de la Tienda</h2>
-          </div>
+        <Section title="Información de la Tienda" icon={Store}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Input label="Nombre de la Tienda" defaultValue="Maison" />
             <Input label="Subdominio" defaultValue="maison" suffix=".mabizz.com" disabled />
@@ -121,14 +112,10 @@ export default function TenantSettings() {
               />
             </div>
           </div>
-        </section>
+        </Section>
 
         {/* Canales de Venta */}
-        <section className="space-y-8 bg-white p-8 border border-stone-100">
-          <div className="flex items-center space-x-3 text-stone-900 border-b border-stone-50 pb-4">
-            <Globe className="w-5 h-5" />
-            <h2 className="text-xs font-bold tracking-[0.2em] uppercase">Canales y Redes</h2>
-          </div>
+        <Section title="Canales y Redes" icon={Globe}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-1">
               <div className="flex items-center space-x-2 mb-1">
@@ -145,7 +132,7 @@ export default function TenantSettings() {
               <Input label="" placeholder="@usuario" defaultValue="@maison_essentials" />
             </div>
           </div>
-        </section>
+        </Section>
       </div>
     </div>
   );
