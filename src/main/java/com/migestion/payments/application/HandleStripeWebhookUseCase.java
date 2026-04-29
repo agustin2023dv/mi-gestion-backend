@@ -1,8 +1,8 @@
 package com.migestion.payments.application;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.migestion.orders.domain.Pedido;
 import com.migestion.orders.domain.PedidoRepository;
 import com.migestion.orders.domain.event.OrderPaidEvent;
@@ -56,7 +56,7 @@ public class HandleStripeWebhookUseCase {
         }
 
         JsonNode root = readPayload(payload);
-        String eventType = root.path("type").asText("");
+        String eventType = root.path("type").asString();
         if (!CHECKOUT_COMPLETED_EVENT.equals(eventType)) {
             return gatewayResponse;
         }
@@ -114,12 +114,12 @@ public class HandleStripeWebhookUseCase {
     }
 
     private Long resolvePedidoId(JsonNode eventObject) {
-        String clientReference = eventObject.path("client_reference_id").asText(null);
+        String clientReference = eventObject.path("client_reference_id").asString();
         if (StringUtils.hasText(clientReference) && clientReference.startsWith("pedido:")) {
             return parseLong(clientReference.substring("pedido:".length()), "INVALID_REFERENCE_ID");
         }
 
-        String metadataPedidoId = eventObject.path("metadata").path("pedidoId").asText(null);
+        String metadataPedidoId = eventObject.path("metadata").path("pedidoId").asString();
         if (StringUtils.hasText(metadataPedidoId)) {
             return parseLong(metadataPedidoId, "INVALID_REFERENCE_ID");
         }
@@ -131,12 +131,12 @@ public class HandleStripeWebhookUseCase {
     }
 
     private String resolveTransactionId(JsonNode eventObject) {
-        String paymentIntent = eventObject.path("payment_intent").asText(null);
+        String paymentIntent = eventObject.path("payment_intent").asString();
         if (StringUtils.hasText(paymentIntent)) {
             return paymentIntent;
         }
 
-        String sessionId = eventObject.path("id").asText(null);
+        String sessionId = eventObject.path("id").asString();
         if (StringUtils.hasText(sessionId)) {
             return sessionId;
         }
@@ -153,14 +153,20 @@ public class HandleStripeWebhookUseCase {
     }
 
     private String resolveCurrency(JsonNode eventObject) {
-        String currency = eventObject.path("currency").asText("USD");
+        String currency = eventObject.path("currency").asString();
+        if (!StringUtils.hasText(currency)) {
+            return "USD";
+        }
         return currency.toUpperCase();
     }
 
     private String resolvePaymentMethod(JsonNode eventObject) {
         JsonNode paymentMethodsNode = eventObject.path("payment_method_types");
         if (paymentMethodsNode.isArray() && !paymentMethodsNode.isEmpty()) {
-            return paymentMethodsNode.get(0).asText("card");
+            String paymentMethod = paymentMethodsNode.path(0).asString();
+            if (StringUtils.hasText(paymentMethod)) {
+                return paymentMethod;
+            }
         }
         return "card";
     }

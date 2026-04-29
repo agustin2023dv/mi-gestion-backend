@@ -79,25 +79,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private Map<String, Object> extractDetails(Claims claims) {
         Map<String, Object> details = new HashMap<>();
-        details.put(TENANT_ID_CLAIM, toLong(claims.get(TENANT_ID_CLAIM)));
+        details.put(TENANT_ID_CLAIM, claims.get(TENANT_ID_CLAIM));
         details.put(Claims.SUBJECT, claims.getSubject());
         details.put(Claims.ID, claims.getId());
         return details;
-    }
-
-    private Long toLong(Object value) {
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-
-        if (value instanceof String raw && !raw.isBlank()) {
-            try {
-                return Long.parseLong(raw);
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-
-        return null;
     }
 }
