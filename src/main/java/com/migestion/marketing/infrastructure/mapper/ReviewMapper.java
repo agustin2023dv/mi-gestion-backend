@@ -72,8 +72,17 @@ public interface ReviewMapper {
     @Mapping(target = "deletedAt", ignore = true)
     ResenaTenant toResenaTenantEntity(CreateTenantReviewRequest request);
 
+    @Mapping(target = "productoNombre", ignore = true)
+    @Mapping(target = "tenantNombre", ignore = true)
+    @Mapping(target = "clienteNombre", ignore = true)
+    @Mapping(target = "isPublished", source = "published")
     ReviewResponse toReviewResponse(ResenaProducto entity);
 
+    @Mapping(target = "productoId", ignore = true)
+    @Mapping(target = "productoNombre", ignore = true)
+    @Mapping(target = "tenantNombre", ignore = true)
+    @Mapping(target = "clienteNombre", ignore = true)
+    @Mapping(target = "isPublished", source = "published")
     ReviewResponse toReviewResponse(ResenaTenant entity);
 }
 

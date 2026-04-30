@@ -124,7 +124,6 @@ class AuthServiceTest {
         when(clienteRepository.findFirstByEmailIgnoreCase("ana@test.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("Password123")).thenReturn("encoded-password");
         when(clienteRepository.save(any(Cliente.class))).thenAnswer(invocation -> {
-            Cliente cliente = invocation.getArgument(0);
                         Cliente savedCliente = org.mockito.Mockito.mock(Cliente.class);
                         when(savedCliente.getId()).thenReturn(501L);
                         return savedCliente;

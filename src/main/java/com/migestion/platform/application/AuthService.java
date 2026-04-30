@@ -75,6 +75,7 @@ public class AuthService {
           .refreshToken(refreshToken)
           .tokenType("Bearer")
           .expiresIn(ACCESS_TOKEN_TTL_SECONDS)
+          .user(userDetails.getUserProfile())
           .build();
 
     } catch (Exception ex) {

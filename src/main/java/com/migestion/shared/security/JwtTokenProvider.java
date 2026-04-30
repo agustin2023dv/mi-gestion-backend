@@ -15,9 +15,12 @@ import java.util.Date;
 import java.util.Objects;
 import java.util.UUID;
 import javax.crypto.SecretKey;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+
+@Slf4j
 
 @Component
 public class JwtTokenProvider {
@@ -65,6 +68,7 @@ public class JwtTokenProvider {
         }
     }
 
+
     public Claims extractClaims(String token) {
         return Jwts.parser()
                 .verifyWith(signingKey)
@@ -79,6 +83,9 @@ public class JwtTokenProvider {
             claims = extractClaims(token);
         } catch (ExpiredJwtException expiredJwtException) {
             claims = expiredJwtException.getClaims();
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("[logout] Could not parse token for blacklisting — skipping: {}", e.getMessage());
+            return;
         }
 
         if (claims == null || claims.getId() == null || claims.getExpiration() == null) {
@@ -92,7 +99,11 @@ public class JwtTokenProvider {
         }
 
         Duration ttl = Duration.between(now, expiration);
-        stringRedisTemplate.opsForValue().set(blacklistKey(claims.getId()), "invalid", ttl);
+        try {
+            stringRedisTemplate.opsForValue().set(blacklistKey(claims.getId()), "invalid", ttl);
+        } catch (Exception e) {
+            log.warn("[logout] Redis unavailable — token blacklisting skipped. Token will expire naturally. Error: {}", e.getMessage());
+        }
     }
 
     private String generateToken(
@@ -124,8 +135,13 @@ public class JwtTokenProvider {
     }
 
     private boolean isTokenInvalidated(String jti) {
-        Boolean hasKey = stringRedisTemplate.hasKey(blacklistKey(jti));
-        return Boolean.TRUE.equals(hasKey);
+        try {
+            Boolean hasKey = stringRedisTemplate.hasKey(blacklistKey(jti));
+            return Boolean.TRUE.equals(hasKey);
+        } catch (Exception e) {
+            log.warn("[validateToken] Redis unavailable — blacklist check skipped, accepting token. Error: {}", e.getMessage());
+            return false;
+        }
     }
 
     private String blacklistKey(String jti) {

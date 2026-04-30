@@ -1,5 +1,6 @@
 package com.migestion.shared.security;
 
+import com.migestion.platform.dto.JwtResponse.UserProfile;
 import java.util.Collection;
 import java.util.List;
 import lombok.Builder;
@@ -18,6 +19,7 @@ public class AuthenticatedUserDetails implements UserDetails {
     private final String role;
     private final List<String> permissions;
     private final List<GrantedAuthority> authorities;
+    private final UserProfile userProfile;
 
     @Builder
     private AuthenticatedUserDetails(
@@ -26,7 +28,8 @@ public class AuthenticatedUserDetails implements UserDetails {
             String password,
             Long tenantId,
             String role,
-            List<String> permissions) {
+            List<String> permissions,
+            UserProfile userProfile) {
         this.id = id;
         this.email = email;
         this.password = password;
@@ -34,6 +37,7 @@ public class AuthenticatedUserDetails implements UserDetails {
         this.role = role;
         this.permissions = permissions == null ? List.of() : List.copyOf(permissions);
         this.authorities = buildAuthorities(this.role, this.permissions);
+        this.userProfile = userProfile;
     }
 
     @Override

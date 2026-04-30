@@ -25,8 +25,8 @@ public interface PlatformMapper {
     @Mapping(target = "visibilidadPublica", source = "tenant.visibilidadPublica")
     @Mapping(target = "aceptaReservasServicios", source = "tenant.aceptaReservasServicios")
     @Mapping(target = "permitePedidosProgramados", source = "tenant.permitePedidosProgramados")
-    @Mapping(target = "isActive", expression = "java(tenant.isActive())")
-    @Mapping(target = "isSuspended", expression = "java(tenant.isSuspended())")
+    @Mapping(target = "isActive", source = "tenant.active")
+    @Mapping(target = "isSuspended", source = "tenant.suspended")
     @Mapping(target = "createdAt", source = "tenant.createdAt")
     @Mapping(target = "updatedAt", source = "tenant.updatedAt")
     TenantResponse toTenantResponse(
@@ -47,8 +47,8 @@ public interface PlatformMapper {
     @Mapping(target = "visibilidadPublica", source = "tenant.visibilidadPublica")
     @Mapping(target = "aceptaReservasServicios", source = "tenant.aceptaReservasServicios")
     @Mapping(target = "permitePedidosProgramados", source = "tenant.permitePedidosProgramados")
-    @Mapping(target = "isActive", expression = "java(tenant.isActive())")
-    @Mapping(target = "isSuspended", expression = "java(tenant.isSuspended())")
+    @Mapping(target = "isActive", source = "tenant.active")
+    @Mapping(target = "isSuspended", source = "tenant.suspended")
     @Mapping(target = "createdAt", source = "tenant.createdAt")
     @Mapping(target = "updatedAt", source = "tenant.updatedAt")
     TenantResponse toTenantResponse(Tenant tenant);

@@ -1,7 +1,11 @@
 package com.migestion.platform.infrastructure;
 
+import com.migestion.catalog.domain.Categoria;
+import com.migestion.catalog.domain.CategoriaRepository;
 import com.migestion.catalog.domain.Producto;
 import com.migestion.catalog.domain.ProductoRepository;
+import com.migestion.catalog.domain.Subcategoria;
+import com.migestion.catalog.domain.SubcategoriaRepository;
 import com.migestion.logistics.domain.Entrega;
 import com.migestion.logistics.domain.EntregaRepository;
 import com.migestion.orders.domain.EstadoPedido;
@@ -10,22 +14,29 @@ import com.migestion.orders.domain.Pedido;
 import com.migestion.orders.domain.PedidoItem;
 import com.migestion.orders.domain.PedidoItemRepository;
 import com.migestion.orders.domain.PedidoRepository;
+import com.migestion.platform.domain.PlanSuscripcion;
+import com.migestion.platform.domain.PlanSuscripcionRepository;
 import com.migestion.platform.domain.SuperAdmin;
 import com.migestion.platform.domain.SuperAdminRepository;
+import com.migestion.tenant.domain.Cliente;
+import com.migestion.tenant.domain.ClienteRepository;
+import com.migestion.tenant.domain.Direccion;
+import com.migestion.tenant.domain.DireccionRepository;
 import com.migestion.tenant.domain.Tenant;
 import com.migestion.tenant.domain.TenantRepository;
 import com.migestion.tenant.domain.UsuarioTenant;
 import com.migestion.tenant.domain.UsuarioTenantRepository;
+import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,497 +44,517 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Seed de Base de Datos para generar datos de prueba automáticamente al iniciar la aplicación.
- * 
- * Este componente crea:
- * - 1 SuperAdmin
- * - 1 EstadoPedido maestro (PENDING, CONFIRMED, DELIVERED, CANCELLED)
- * - 5 Tenants (arrendadores)
- * - 3 Deliveries (repartidores)
- * - Para cada Tenant: entre 10-30 Pedidos con Productos
- * 
- * Los datos se generan de forma aleatoria con:
- * - Nombres, apellidos, emails realistas
- * - Fechas de los últimos 6 meses
- * - Montos variados
- * - Estados diversos
- * 
- * Se ejecuta solo en los perfiles: local, dev, test
+ * Local-only database seeder. Creates deterministic, relationship-consistent mock data.
+ *
+ * <p>Behaviour:
+ * <ul>
+ *   <li>Normal start → seeds once, skips on subsequent restarts (idempotent by unique email/slug).</li>
+ *   <li>{@code --seed.reset=true} → wipes all seeded tables, resets sequences, then re-seeds.</li>
+ * </ul>
+ *
+ * <p>Insert order (FK-safe):
+ * PlanSuscripcion → SuperAdmin → Categoria → Subcategoria → Tenant → UsuarioTenant →
+ * Cliente → Direccion → Producto → EstadoPedido → Pedido → PedidoItem → Entrega
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@Profile({"local", "dev", "test"})
+@Profile("local")
 public class DatabaseSeeder implements CommandLineRunner {
 
-    // ========== REPOSITORIES ==========
+    // ── Repositories ──
     private final SuperAdminRepository superAdminRepository;
+    private final PlanSuscripcionRepository planSuscripcionRepository;
     private final TenantRepository tenantRepository;
     private final UsuarioTenantRepository usuarioTenantRepository;
+    private final ClienteRepository clienteRepository;
+    private final DireccionRepository direccionRepository;
+    private final CategoriaRepository categoriaRepository;
+    private final SubcategoriaRepository subcategoriaRepository;
     private final EstadoPedidoRepository estadoPedidoRepository;
     private final ProductoRepository productoRepository;
-    private final EntregaRepository entregaRepository;
     private final PedidoRepository pedidoRepository;
     private final PedidoItemRepository pedidoItemRepository;
+    private final EntregaRepository entregaRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EntityManager entityManager;
 
-    // ========== DATOS PREDEFINIDOS ==========
-    private static final List<String> NOMBRES = Arrays.asList(
-            "Ana", "Luis", "María", "Juan", "Carmen", "Francisco", "Rosa", "Diego",
-            "Sofía", "Javier", "Isabel", "Pedro", "Elena", "Manuel", "Beatriz",
-            "Carlos", "Lorena", "Miguel", "Victoria", "Andrés"
-    );
+    @Value("${seed.reset:false}")
+    private boolean seedReset;
 
-    private static final List<String> APELLIDOS = Arrays.asList(
-            "García", "Pérez", "Rodríguez", "Martínez", "López", "González", "Sánchez",
-            "Fernández", "Torres", "Ramírez", "Flores", "Cruz", "Moreno", "Guerrero",
-            "Medina", "Cortés", "Vega", "Reyes", "Castro", "Mendoza"
-    );
+    // ── Deterministic constants ──
+    private static final String SUPER_ADMIN_EMAIL = "superadmin@mabizz.com";
+    private static final String DEFAULT_PASSWORD = "Pass@12345";
 
-    private static final List<String> CIUDADES = Arrays.asList(
-            "Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga",
-            "Santa Marta", "Cúcuta", "Ibagué", "Manizales", "Pereira", "Armenia"
-    );
+    // ════════════════════════════════════════════════════════════════
+    // ENTRY POINT
+    // ════════════════════════════════════════════════════════════════
 
-    private static final List<String> TIPOS_NEGOCIO = Arrays.asList(
-            "Pizzería", "Restaurante", "Cafetería", "Panadería", "Pastelería",
-            "Comida Rápida", "Supermarket", "Tienda de Abarrotes", "Heladería",
-            "Comida Casera", "Restaurante Colombiano", "Marisquería"
-    );
-
-    private static final List<String> NOMBRES_PRODUCTOS = Arrays.asList(
-            "Hamburguesa Clásica", "Pizza Margarita", "Arepa con Queso", "Empanada de Carne",
-            "Sándwich de Jamón", "Pasta Carbonara", "Milanesa", "Pollo Frito",
-            "Ensalada Griega", "Tacos al Pastor", "Burrito", "Enchiladas",
-            "Ceviche", "Arroz con Pollo", "Chuleta", "Costillas BBQ"
-    );
-
-    private static final List<String> ESTADOS_PAGO = Arrays.asList("pendiente", "pagado", "cancelado");
-
-    private static final List<String> ORIGENES_PEDIDO = Arrays.asList("web", "app", "whatsapp", "telefono");
-
-    private static final List<String> ESTADOS_ENTREGA = Arrays.asList("pendiente", "asignado", "recogido", "entregado");
-
-    private static final Random RANDOM = new Random();
-
-    /**
-     * Ejecuta el seed al iniciar la aplicación
-     */
     @Override
     @Transactional
-    public void run(String... args) throws Exception {
-        log.info("========== INICIANDO SEED DE BASE DE DATOS ==========");
+    public void run(String... args) {
+        log.info("══════ DATABASE SEEDER [local] ══════");
 
         try {
-            // Validar si ya existen datos
-            if (existenDatos()) {
-                log.warn("Ya existen datos en la base de datos. Se omite el seed.");
+            if (seedReset) {
+                log.warn("🗑️  seed.reset=true → wiping all seeded data…");
+                wipeAllSeededData();
+                log.info("🗑️  Wipe complete.");
+            }
+
+            if (alreadySeeded()) {
+                log.info("⏭️  Seed data already present — skipping.");
                 return;
             }
 
-            // 1. Crear Estados de Pedido (datos maestros)
-            log.info("1️⃣  Creando Estados de Pedido...");
-            List<EstadoPedido> estados = crearEstadosPedido();
-
-            // 2. Crear SuperAdmin
-            log.info("2️⃣  Creando SuperAdmin...");
-            crearSuperAdmin();
-
-            // 3. Crear 5 Tenants
-            log.info("3️⃣  Creando 5 Tenants...");
-            List<Tenant> tenants = crearTenants();
-
-            // 4. Crear 3 Repartidores (Deliveries)
-            log.info("4️⃣  Creando 3 Repartidores...");
-            List<Entrega> repartidores = crearRepartidores();
-
-            // 5. Para cada Tenant: crear Productos y Pedidos
-            for (int i = 0; i < tenants.size(); i++) {
-                Tenant tenant = tenants.get(i);
-                log.info("5️⃣  Procesando Tenant {} de {}: {} (ID: {})",
-                        i + 1, tenants.size(), tenant.getNombreNegocio(), tenant.getId());
-
-                // Crear productos para este tenant
-                List<Producto> productos = crearProductos(tenant);
-
-                // Crear entre 10 y 30 pedidos para este tenant
-                int numeroPedidos = 10 + RANDOM.nextInt(21);
-                log.info("   → Creando {} Pedidos para {}...", numeroPedidos, tenant.getNombreNegocio());
-
-                for (int j = 0; j < numeroPedidos; j++) {
-                    Pedido pedido = crearPedido(tenant, estados, productos);
-
-                    // Crear 2-5 items para este pedido
-                    int numeroItems = 2 + RANDOM.nextInt(4);
-                    for (int k = 0; k < numeroItems; k++) {
-                        crearPedidoItem(pedido, productos);
-                    }
-
-                    // Opcionalmente asignar un repartidor
-                    if (RANDOM.nextBoolean() && !repartidores.isEmpty()) {
-                        asignarRepartidor(pedido, repartidores.get(RANDOM.nextInt(repartidores.size())));
-                    }
-                }
-            }
-
-            log.info("========== ✅ SEED DE BASE DE DATOS COMPLETADO EXITOSAMENTE ==========");
-            log.info("Datos listos para pruebas. Se generaron datos variados y realistas.");
+            log.info("🌱 Seeding…");
+            seed();
+            log.info("✅ DATABASE SEED COMPLETE");
 
         } catch (Exception e) {
-            log.error("❌ Error durante el seed de la base de datos: {}", e.getMessage(), e);
-            throw e;
+            log.error("❌ Seed failed: {}", e.getMessage(), e);
+            throw new RuntimeException("Database seed failed", e);
         }
     }
 
-    /**
-     * Verifica si ya existen datos en la base de datos
-     */
-    private boolean existenDatos() {
-        return superAdminRepository.count() > 0
-                || tenantRepository.count() > 0
-                || estadoPedidoRepository.count() > 0;
+    // ════════════════════════════════════════════════════════════════
+    // IDEMPOTENCY GUARD — checks unique business keys, not row count
+    // ════════════════════════════════════════════════════════════════
+
+    private boolean alreadySeeded() {
+        return superAdminRepository.findByEmailIgnoreCase(SUPER_ADMIN_EMAIL).isPresent()
+                && tenantRepository.findBySlug("pizzeria-del-sol").isPresent();
     }
 
-    /**
-     * Crea los Estados de Pedido principales
-     */
-    private List<EstadoPedido> crearEstadosPedido() {
-        List<EstadoPedido> estados = new ArrayList<>();
+    // ════════════════════════════════════════════════════════════════
+    // WIPE (reverse FK order) — raw SQL required for TRUNCATE CASCADE
+    // ════════════════════════════════════════════════════════════════
 
-        EstadoPedido pendiente = EstadoPedido.builder()
-                .codigo("PENDIENTE")
-                .nombre("Pendiente")
-                .color("#FFA500")
-                .orderIndex(1)
-                .esFinal(false)
-                .build();
+    private void wipeAllSeededData() {
+        entityManager.flush();
 
-        EstadoPedido confirmado = EstadoPedido.builder()
-                .codigo("CONFIRMADO")
-                .nombre("Confirmado")
-                .color("#4169E1")
-                .orderIndex(2)
-                .esFinal(false)
-                .build();
+        // Truncate in reverse-dependency order with CASCADE
+        List<String> tables = List.of(
+                "entrega",
+                "pedidoitem",
+                "pedido",
+                "producto",
+                "subcategoria",
+                "categoria",
+                "direccion",
+                "cliente",
+                "\"UsuarioTenant\"",
+                "tenant",
+                "super_admin",
+                "plan_suscripcion",
+                "estadopedido"
+        );
 
-        EstadoPedido entregado = EstadoPedido.builder()
-                .codigo("ENTREGADO")
-                .nombre("Entregado")
-                .color("#228B22")
-                .orderIndex(3)
-                .esFinal(true)
-                .build();
-
-        EstadoPedido cancelado = EstadoPedido.builder()
-                .codigo("CANCELADO")
-                .nombre("Cancelado")
-                .color("#DC143C")
-                .orderIndex(4)
-                .esFinal(true)
-                .build();
-
-        estados.addAll(Arrays.asList(pendiente, confirmado, entregado, cancelado));
-        return estadoPedidoRepository.saveAll(estados);
-    }
-
-    /**
-     * Crea un SuperAdmin de prueba
-     */
-    private void crearSuperAdmin() {
-        String email = "superadmin@mabizz.com";
-        
-        // Evitar duplicados
-        if (superAdminRepository.findByEmailIgnoreCase(email).isPresent()) {
-            log.debug("SuperAdmin ya existe: {}", email);
-            return;
+        for (String table : tables) {
+            entityManager.createNativeQuery(
+                    "TRUNCATE TABLE " + table + " RESTART IDENTITY CASCADE"
+            ).executeUpdate();
+            log.debug("  truncated: {}", table);
         }
 
-        SuperAdmin superAdmin = SuperAdmin.builder()
-                .email(email)
+        entityManager.flush();
+        entityManager.clear();
+        log.info("🗑️  All seeded tables truncated, sequences reset.");
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // SEED ORCHESTRATOR — strict FK insert order
+    // ════════════════════════════════════════════════════════════════
+
+    private void seed() {
+        // 1. PlanSuscripcion (no FK deps)
+        log.info("  1/9  PlanSuscripcion…");
+        PlanSuscripcion planBasico = seedPlanSuscripcion("Básico", 50, 200, 500,
+                new BigDecimal("9.99"), 1, List.of("catalog", "orders"));
+        PlanSuscripcion planPro = seedPlanSuscripcion("Profesional", 200, 1000, 2000,
+                new BigDecimal("29.99"), 2, List.of("catalog", "orders", "analytics", "marketing"));
+
+        // 2. SuperAdmin (no FK deps)
+        log.info("  2/9  SuperAdmin…");
+        seedSuperAdmin();
+
+        // 3. Categorias + Subcategorias (no tenant FK)
+        log.info("  3/9  Categorías y Subcategorías…");
+        List<Subcategoria> subcategorias = seedCatalogStructure();
+
+        // 4. EstadoPedido (no FK deps)
+        log.info("  4/9  EstadoPedido…");
+        List<EstadoPedido> estados = seedEstadosPedido();
+
+        // 5. Tenants → UsuarioTenant (FK: planSuscripcionId)
+        log.info("  5/9  Tenants + Propietarios…");
+        List<TenantBundle> tenantBundles = seedTenants(planBasico, planPro);
+
+        // 6. Clientes + Direcciones (FK: tenantId)
+        log.info("  6/9  Clientes + Direcciones…");
+        for (TenantBundle tb : tenantBundles) {
+            tb.clientes = seedClientes(tb.tenant);
+            tb.direcciones = seedDirecciones(tb.clientes);
+        }
+
+        // 7. Productos (FK: tenantId, subcategoriaId)
+        log.info("  7/9  Productos…");
+        for (TenantBundle tb : tenantBundles) {
+            tb.productos = seedProductos(tb.tenant, subcategorias);
+        }
+
+        // 8. Pedidos + PedidoItems (FK: tenantId, clienteId, estadoId, productoId)
+        log.info("  8/9  Pedidos + Items…");
+        for (TenantBundle tb : tenantBundles) {
+            tb.pedidos = seedPedidos(tb.tenant, tb.clientes, tb.direcciones, estados, tb.productos);
+        }
+
+        // 9. Entregas (FK: tenantId, pedidoId)
+        log.info("  9/9  Entregas…");
+        for (TenantBundle tb : tenantBundles) {
+            seedEntregas(tb.tenant, tb.pedidos);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // INDIVIDUAL SEEDERS
+    // ════════════════════════════════════════════════════════════════
+
+    private PlanSuscripcion seedPlanSuscripcion(String nombre, int maxProd, int maxPed,
+            int maxMb, BigDecimal precio, int order, List<String> features) {
+        return planSuscripcionRepository.findByNombreIgnoreCase(nombre)
+                .orElseGet(() -> planSuscripcionRepository.save(PlanSuscripcion.builder()
+                        .nombre(nombre)
+                        .maxProductos(maxProd)
+                        .maxPedidosMensuales(maxPed)
+                        .maxAlmacenamientoMb(maxMb)
+                        .precioMensual(precio)
+                        .orderLevel(order)
+                        .features(features)
+                        .build()));
+    }
+
+    private void seedSuperAdmin() {
+        if (superAdminRepository.findByEmailIgnoreCase(SUPER_ADMIN_EMAIL).isPresent()) return;
+        superAdminRepository.save(SuperAdmin.builder()
+                .email(SUPER_ADMIN_EMAIL)
                 .nombre("Admin")
                 .apellido("Sistema")
                 .passwordHash(passwordEncoder.encode("Admin@12345"))
                 .isActive(true)
-                .build();
-
-        superAdminRepository.save(superAdmin);
-        log.debug("✓ SuperAdmin creado: {}", email);
+                .build());
     }
 
-    /**
-     * Crea 5 Tenants (arrendadores) con sus usuarios dueños
-     */
-    private List<Tenant> crearTenants() {
-        List<Tenant> tenants = new ArrayList<>();
+    private List<Subcategoria> seedCatalogStructure() {
+        List<Subcategoria> allSubs = new ArrayList<>();
 
-        for (int i = 1; i <= 5; i++) {
-            // Generar datos aleatorios
-            String nombreNegocio = TIPOS_NEGOCIO.get(RANDOM.nextInt(TIPOS_NEGOCIO.size()))
-                    + " " + generarNombreAleatorio();
-            String slug = generarSlug(nombreNegocio);
-            String tenantIdentifier = "tenant_" + UUID.randomUUID().toString().substring(0, 8);
+        record CatDef(String name, String desc, String[][] subs) {}
+        List<CatDef> defs = List.of(
+                new CatDef("Comidas", "Platos principales y entradas", new String[][]{
+                        {"Hamburguesas", "Hamburguesas artesanales"},
+                        {"Pizzas", "Pizzas a la piedra"},
+                        {"Pastas", "Pastas frescas y secas"}
+                }),
+                new CatDef("Bebidas", "Bebidas frías y calientes", new String[][]{
+                        {"Gaseosas", "Bebidas carbonatadas"},
+                        {"Jugos Naturales", "Jugos frescos"}
+                }),
+                new CatDef("Postres", "Dulces y postres", new String[][]{
+                        {"Tortas", "Tortas y tartas"},
+                        {"Helados", "Helados artesanales"}
+                })
+        );
 
-            // Crear Tenant
-            Tenant tenant = Tenant.builder()
-                    .tenantIdentifier(tenantIdentifier)
-                    .nombreNegocio(nombreNegocio)
-                    .slug(slug)
-                    .planSuscripcionId(1L) // ID de plan estándar
-                    .logoUrl(null)
-                    .colorPrimario("#FF6B6B")
-                    .colorSecundario("#4ECDC4")
-                    .visibilidadPublica(true)
-                    .aceptaReservasServicios(true)
-                    .permitePedidosProgramados(true)
+        for (CatDef cd : defs) {
+            Categoria cat = categoriaRepository.save(Categoria.builder()
+                    .nombre(cd.name)
+                    .descripcion(cd.desc)
                     .isActive(true)
-                    .isSuspended(false)
-                    .build();
-
-            Tenant savedTenant = tenantRepository.save(tenant);
-            log.debug("  ✓ Tenant creado: {} (ID: {})", nombreNegocio, savedTenant.getId());
-
-            // Crear Usuario Propietario del Tenant
-            String nombre = NOMBRES.get(RANDOM.nextInt(NOMBRES.size()));
-            String apellido = APELLIDOS.get(RANDOM.nextInt(APELLIDOS.size()));
-            String email = generarEmail(nombre, apellido, i);
-
-            UsuarioTenant propietario = UsuarioTenant.builder()
-                    .tenantId(savedTenant.getId())
-                    .nombre(nombre)
-                    .apellido(apellido)
-                    .email(email)
-                    .passwordHash(passwordEncoder.encode("Pass@12345"))
-                    .caracteristicaTelefonoZona("1")
-                    .telefono(generarTelefono())
-                    .sexo(RANDOM.nextBoolean() ? "M" : "F")
-                    .rol("admin")
-                    .isActive(true)
-                    .build();
-
-            usuarioTenantRepository.save(propietario);
-            savedTenant.setPropietarioId(propietario.getId());
-            tenantRepository.save(savedTenant);
-
-            log.debug("  ✓ Usuario propietario creado: {} {} ({})", nombre, apellido, email);
-            tenants.add(savedTenant);
+                    .build());
+            for (String[] sub : cd.subs) {
+                allSubs.add(subcategoriaRepository.save(Subcategoria.builder()
+                        .categoria(cat)
+                        .nombre(sub[0])
+                        .descripcion(sub[1])
+                        .isActive(true)
+                        .build()));
+            }
         }
-
-        return tenants;
+        return allSubs;
     }
 
-    /**
-     * Crea 3 Repartidores (Deliveries)
-     */
-    private List<Entrega> crearRepartidores() {
-        List<Entrega> repartidores = new ArrayList<>();
+    private List<EstadoPedido> seedEstadosPedido() {
+        record Def(String code, String name, String color, int idx, boolean fin) {}
+        List<Def> defs = List.of(
+                new Def("PENDIENTE", "Pendiente", "#FFA500", 1, false),
+                new Def("CONFIRMADO", "Confirmado", "#4169E1", 2, false),
+                new Def("EN_PREPARACION", "En Preparación", "#9B59B6", 3, false),
+                new Def("LISTO", "Listo para Entrega", "#2ECC71", 4, false),
+                new Def("EN_CAMINO", "En Camino", "#3498DB", 5, false),
+                new Def("ENTREGADO", "Entregado", "#228B22", 6, true),
+                new Def("CANCELADO", "Cancelado", "#DC143C", 7, true)
+        );
 
-        for (int i = 1; i <= 3; i++) {
-            // Los repartidores se crean como registros de Entrega sin pedido asignado aún
-            // En una estructura real, habría una tabla Repartidor separada
-            // Para este seed, usamos la tabla Entrega como referencia de repartidores
-
-            String nombre = NOMBRES.get(RANDOM.nextInt(NOMBRES.size()));
-            String apellido = APELLIDOS.get(RANDOM.nextInt(APELLIDOS.size()));
-
-            log.debug("  ✓ Repartidor {}: {} {}", i, nombre, apellido);
+        List<EstadoPedido> result = new ArrayList<>();
+        for (Def d : defs) {
+            result.add(estadoPedidoRepository.findByCodigo(d.code)
+                    .orElseGet(() -> estadoPedidoRepository.save(EstadoPedido.builder()
+                            .codigo(d.code)
+                            .nombre(d.name)
+                            .color(d.color)
+                            .orderIndex(d.idx)
+                            .esFinal(d.fin)
+                            .build())));
         }
-
-        // Retornar lista vacía si no existe tabla separada de Repartidores
-        // En caso contrario, implementar la creación en la tabla correspondiente
-        return repartidores;
+        return result;
     }
 
-    /**
-     * Crea Productos para un Tenant específico
-     */
-    private List<Producto> crearProductos(Tenant tenant) {
-        List<Producto> productos = new ArrayList<>();
+    private List<TenantBundle> seedTenants(PlanSuscripcion planBasico, PlanSuscripcion planPro) {
+        record Def(String biz, String slug, String color1, String color2, PlanSuscripcion plan,
+                   String ownerName, String ownerLastName, String ownerEmail) {}
 
-        int numeroProductos = 8 + RANDOM.nextInt(13); // Entre 8 y 20 productos
+        List<Def> defs = List.of(
+                new Def("Pizzería del Sol", "pizzeria-del-sol", "#E74C3C", "#F39C12", planBasico,
+                        "Ana", "García", "ana.garcia@mabizz.test"),
+                new Def("Café Aroma", "cafe-aroma", "#8E44AD", "#2ECC71", planPro,
+                        "Luis", "Martínez", "luis.martinez@mabizz.test"),
+                new Def("Burger House", "burger-house", "#E67E22", "#1ABC9C", planBasico,
+                        "María", "López", "maria.lopez@mabizz.test")
+        );
 
-        for (int i = 0; i < numeroProductos; i++) {
-            String nombreProducto = NOMBRES_PRODUCTOS.get(RANDOM.nextInt(NOMBRES_PRODUCTOS.size()));
-            String sku = generarSKU();
-            BigDecimal precio = BigDecimal.valueOf(5000 + RANDOM.nextInt(40000));
-            BigDecimal costo = precio.multiply(BigDecimal.valueOf(0.4 + RANDOM.nextDouble() * 0.3));
-            int stock = 20 + RANDOM.nextInt(81); // Entre 20 y 100
+        List<TenantBundle> bundles = new ArrayList<>();
+        for (int i = 0; i < defs.size(); i++) {
+            Def d = defs.get(i);
 
-            Producto producto = Producto.builder()
+            Tenant tenant = tenantRepository.findBySlug(d.slug).orElseGet(() -> {
+                Tenant t = Tenant.builder()
+                        .tenantIdentifier("tenant_seed_" + d.slug)
+                        .nombreNegocio(d.biz)
+                        .slug(d.slug)
+                        .planSuscripcionId(d.plan.getId())
+                        .colorPrimario(d.color1)
+                        .colorSecundario(d.color2)
+                        .visibilidadPublica(true)
+                        .aceptaReservasServicios(false)
+                        .permitePedidosProgramados(true)
+                        .isActive(true)
+                        .isSuspended(false)
+                        .build();
+                return tenantRepository.save(t);
+            });
+
+            // Owner
+            if (tenant.getPropietarioId() == null) {
+                UsuarioTenant owner = usuarioTenantRepository.save(UsuarioTenant.builder()
+                        .tenantId(tenant.getId())
+                        .nombre(d.ownerName)
+                        .apellido(d.ownerLastName)
+                        .email(d.ownerEmail)
+                        .passwordHash(passwordEncoder.encode(DEFAULT_PASSWORD))
+                        .caracteristicaTelefonoZona("54")
+                        .telefono("11" + String.format("%08d", 40000000 + i))
+                        .sexo(i % 2 == 0 ? "F" : "M")
+                        .rol("admin")
+                        .isActive(true)
+                        .build());
+                tenant.setPropietarioId(owner.getId());
+                tenantRepository.save(tenant);
+            }
+
+            TenantBundle tb = new TenantBundle();
+            tb.tenant = tenant;
+            bundles.add(tb);
+        }
+        return bundles;
+    }
+
+    private List<Cliente> seedClientes(Tenant tenant) {
+        record Def(String name, String email) {}
+        List<Def> defs = List.of(
+                new Def("Carlos", "carlos.cliente@mabizz.test"),
+                new Def("Sofía", "sofia.cliente@mabizz.test"),
+                new Def("Diego", "diego.cliente@mabizz.test")
+        );
+
+        List<Cliente> result = new ArrayList<>();
+        for (Def d : defs) {
+            // Unique per (tenant_id, email) — build scoped email
+            String scopedEmail = tenant.getSlug() + "." + d.email;
+            result.add(clienteRepository.save(Cliente.builder()
                     .tenantId(tenant.getId())
-                    .nombre(nombreProducto + " #" + (i + 1))
-                    .descripcion("Producto de alta calidad de " + tenant.getNombreNegocio())
-                    .precio(precio)
-                    .costoUnitarioCalculado(costo)
+                    .email(scopedEmail)
+                    .passwordHash(passwordEncoder.encode(DEFAULT_PASSWORD))
+                    .emailVerificado(true)
+                    .build()));
+        }
+        return result;
+    }
+
+    private List<Direccion> seedDirecciones(List<Cliente> clientes) {
+        List<Direccion> result = new ArrayList<>();
+        BigDecimal baseLat = new BigDecimal("-34.6037");
+        BigDecimal baseLon = new BigDecimal("-58.3816");
+
+        for (int i = 0; i < clientes.size(); i++) {
+            result.add(direccionRepository.save(Direccion.builder()
+                    .clienteId(clientes.get(i).getId())
+                    .latitud(baseLat.add(new BigDecimal("0.00" + (i + 1))))
+                    .longitud(baseLon.add(new BigDecimal("0.00" + (i + 1))))
+                    .build()));
+        }
+        return result;
+    }
+
+    private List<Producto> seedProductos(Tenant tenant, List<Subcategoria> subcategorias) {
+        record Def(String name, String desc, BigDecimal price, BigDecimal cost, int stock, int subIdx) {}
+        List<Def> defs = List.of(
+                new Def("Hamburguesa Clásica", "Carne 200g, lechuga, tomate, queso",
+                        bd("1500"), bd("600"), 50, 0),
+                new Def("Pizza Margarita", "Mozzarella, tomate, albahaca",
+                        bd("2200"), bd("800"), 30, 1),
+                new Def("Pasta Carbonara", "Panceta, huevo, parmesano",
+                        bd("1800"), bd("700"), 40, 2),
+                new Def("Coca-Cola 500ml", "Bebida carbonatada",
+                        bd("500"), bd("200"), 100, 3),
+                new Def("Jugo de Naranja", "Naranja exprimida natural",
+                        bd("700"), bd("300"), 60, 4),
+                new Def("Torta de Chocolate", "Bizcocho húmedo con ganache",
+                        bd("1200"), bd("500"), 20, 5),
+                new Def("Helado Artesanal", "Dulce de leche, 2 bochas",
+                        bd("900"), bd("350"), 45, 6)
+        );
+
+        List<Producto> result = new ArrayList<>();
+        for (int i = 0; i < defs.size(); i++) {
+            Def d = defs.get(i);
+            String sku = "SEED-" + tenant.getSlug().toUpperCase().replace("-", "") + "-" + String.format("%03d", i + 1);
+
+            // Skip if SKU already exists for this tenant
+            if (productoRepository.existsByTenantIdAndSku(tenant.getId(), sku)) continue;
+
+            Subcategoria sub = subcategorias.get(Math.min(d.subIdx, subcategorias.size() - 1));
+
+            result.add(productoRepository.save(Producto.builder()
+                    .tenantId(tenant.getId())
+                    .subcategoriaId(sub.getId())
+                    .nombre(d.name)
+                    .descripcion(d.desc)
+                    .precio(d.price)
+                    .costoUnitarioCalculado(d.cost)
                     .usaCostoCalculado(true)
-                    .stock(stock)
+                    .stock(d.stock)
                     .stockReservado(0)
                     .stockMinimo(5)
                     .sku(sku)
-                    .esPersonalizable(RANDOM.nextBoolean())
+                    .esPersonalizable(false)
                     .esServicio(false)
                     .permiteBooking(false)
                     .requiereVerificacionEdad(false)
-                    .build();
-
-            productos.add(productoRepository.save(producto));
+                    .isActive(true)
+                    .build()));
         }
-
-        log.debug("  ✓ {} productos creados para {}", productos.size(), tenant.getNombreNegocio());
-        return productos;
+        return result;
     }
 
-    /**
-     * Crea un Pedido para un Tenant con datos aleatorios
-     */
-    private Pedido crearPedido(Tenant tenant, List<EstadoPedido> estados, List<Producto> productos) {
-        String numeroPedido = generarNumeroPedido();
-        EstadoPedido estadoAleatorio = estados.get(RANDOM.nextInt(estados.size()));
-        String estadoPago = ESTADOS_PAGO.get(RANDOM.nextInt(ESTADOS_PAGO.size()));
-        String origenPedido = ORIGENES_PEDIDO.get(RANDOM.nextInt(ORIGENES_PEDIDO.size()));
+    private List<Pedido> seedPedidos(Tenant tenant, List<Cliente> clientes,
+            List<Direccion> direcciones, List<EstadoPedido> estados, List<Producto> productos) {
+        if (clientes.isEmpty() || productos.isEmpty() || estados.isEmpty()) return List.of();
 
-        // Generar fecha aleatoria en los últimos 6 meses
-        Instant fechaPedido = generarFechaAleatoria();
+        List<Pedido> result = new ArrayList<>();
+        Instant now = Instant.now();
+        String[] origenes = {"web", "app", "whatsapp"};
+        String[] metodosPago = {"efectivo", "tarjeta", "transferencia"};
 
-        // Subtotal y cálculos
-        BigDecimal subtotal = BigDecimal.valueOf(50000 + RANDOM.nextInt(150000));
-        BigDecimal impuestos = subtotal.multiply(BigDecimal.valueOf(0.19)); // IVA 19%
-        BigDecimal costoEnvio = BigDecimal.valueOf(5000 + RANDOM.nextInt(15000));
-        BigDecimal descuentoInicial = subtotal.multiply(BigDecimal.valueOf(RANDOM.nextDouble() * 0.1));
-        BigDecimal total = subtotal.add(impuestos).add(costoEnvio).subtract(descuentoInicial);
+        for (int i = 0; i < 15; i++) {
+            Cliente cliente = clientes.get(i % clientes.size());
+            EstadoPedido estado = estados.get(i % estados.size());
+            Direccion dir = direcciones.isEmpty() ? null : direcciones.get(i % direcciones.size());
 
-        Pedido pedido = Pedido.builder()
-                .tenantId(tenant.getId())
-                .clienteId(null) // No asignado para este seed
-                .repartidorId(null)
-                .estado(estadoAleatorio)
-                .numeroPedido(numeroPedido)
-                .tipoEntrega("domicilio")
-                .subtotal(subtotal)
-                .impuestos(impuestos)
-                .costoEnvio(costoEnvio)
-                .descuentoInicial(descuentoInicial)
-                .descuentoAdicional(BigDecimal.ZERO)
-                .total(total)
-                .estadoPago(estadoPago)
-                .estadoPago(estadoPago)
-                .origenPedido(origenPedido)
-                .trackingToken(UUID.randomUUID().toString())
-                .correlationId(UUID.randomUUID().toString())
-                .idempotencyKey(UUID.randomUUID().toString())
-                .fechaPedido(fechaPedido)
-                .fechaEntregaSolicitada(fechaPedido.plus(1, ChronoUnit.HOURS))
-                .requiereVerificacionEdad(RANDOM.nextBoolean())
-                .esProgramado(false)
-                .build();
+            String idempKey = "seed-" + tenant.getSlug() + "-order-" + (i + 1);
+            if (pedidoRepository.existsByIdempotencyKey(idempKey)) continue;
 
-        return pedidoRepository.save(pedido);
-    }
+            BigDecimal subtotal = bd(String.valueOf(5000 + i * 1500));
+            BigDecimal impuestos = subtotal.multiply(bd("0.21")).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal costoEnvio = bd(i % 3 == 0 ? "0" : "500");
+            BigDecimal total = subtotal.add(impuestos).add(costoEnvio);
 
-    /**
-     * Crea un Item (detalle) de Pedido
-     */
-    private void crearPedidoItem(Pedido pedido, List<Producto> productos) {
-        if (productos.isEmpty()) {
-            return;
+            Pedido pedido = pedidoRepository.save(Pedido.builder()
+                    .tenantId(tenant.getId())
+                    .clienteId(cliente.getId())
+                    .direccionEntregaId(dir != null ? dir.getId() : null)
+                    .estado(estado)
+                    .numeroPedido("PED-" + tenant.getSlug().substring(0, 3).toUpperCase()
+                            + "-" + String.format("%04d", i + 1))
+                    .tipoEntrega(i % 4 == 0 ? "retiro" : "domicilio")
+                    .subtotal(subtotal)
+                    .impuestos(impuestos)
+                    .costoEnvio(costoEnvio)
+                    .descuentoInicial(BigDecimal.ZERO)
+                    .descuentoAdicional(BigDecimal.ZERO)
+                    .total(total)
+                    .metodoPago(metodosPago[i % metodosPago.length])
+                    .estadoPago(estado.isEsFinal() ? "pagado" : "pendiente")
+                    .origenPedido(origenes[i % origenes.length])
+                    .trackingToken(UUID.nameUUIDFromBytes(idempKey.getBytes()).toString())
+                    .correlationId(UUID.nameUUIDFromBytes(("corr-" + idempKey).getBytes()).toString())
+                    .idempotencyKey(idempKey)
+                    .fechaPedido(now.minus(30L - i * 2, ChronoUnit.DAYS))
+                    .fechaEntregaSolicitada(now.minus(29L - i * 2, ChronoUnit.DAYS))
+                    .requiereVerificacionEdad(false)
+                    .esProgramado(false)
+                    .build());
+
+            // 2-3 items per order
+            int itemCount = 2 + (i % 2);
+            for (int j = 0; j < itemCount; j++) {
+                Producto prod = productos.get((i + j) % productos.size());
+                pedidoItemRepository.save(PedidoItem.builder()
+                        .pedidoId(pedido.getId())
+                        .productoId(prod.getId())
+                        .cantidad(1 + (j % 3))
+                        .precioBaseSnapshot(prod.getPrecio())
+                        .precioExtrasSnapshot(BigDecimal.ZERO)
+                        .costoUnitarioSnapshot(prod.getCostoUnitarioCalculado())
+                        .nombreProductoSnapshot(prod.getNombre())
+                        .skuSnapshot(prod.getSku())
+                        .build());
+            }
+
+            result.add(pedido);
         }
-
-        Producto producto = productos.get(RANDOM.nextInt(productos.size()));
-        int cantidad = 1 + RANDOM.nextInt(5);
-
-        PedidoItem item = PedidoItem.builder()
-                .pedidoId(pedido.getId())
-                .productoId(producto.getId())
-                .cantidad(cantidad)
-                .precioBaseSnapshot(producto.getPrecio())
-                .precioExtrasSnapshot(BigDecimal.ZERO)
-                .costoUnitarioSnapshot(producto.getCostoUnitarioCalculado())
-                .nombreProductoSnapshot(producto.getNombre())
-                .skuSnapshot(producto.getSku())
-                .build();
-
-        pedidoItemRepository.save(item);
+        return result;
     }
 
-    /**
-     * Asigna un repartidor a un Pedido creando una Entrega
-     */
-    private void asignarRepartidor(Pedido pedido, Entrega repartidor) {
-        String estadoEntrega = ESTADOS_ENTREGA.get(RANDOM.nextInt(ESTADOS_ENTREGA.size()));
+    private void seedEntregas(Tenant tenant, List<Pedido> pedidos) {
+        String[] estadosEntrega = {"pendiente", "asignado", "en_camino", "entregado"};
+        for (int i = 0; i < pedidos.size(); i++) {
+            Pedido p = pedidos.get(i);
+            if (!"domicilio".equals(p.getTipoEntrega())) continue;
+            // Only create delivery for ~60% of delivery orders
+            if (i % 5 == 0) continue;
 
-        Entrega entrega = Entrega.builder()
-                .tenantId(pedido.getTenantId())
-                .pedidoId(pedido.getId())
-                .repartidorId(null) // Se asignaría con ID real del repartidor
-                .estado(estadoEntrega)
-                .geolocalizacionValidada(RANDOM.nextBoolean())
-                .verificacionEdadHecha(pedido.isRequiereVerificacionEdad())
-                .build();
-
-        entregaRepository.save(entrega);
+            entregaRepository.save(Entrega.builder()
+                    .tenantId(tenant.getId())
+                    .pedidoId(p.getId())
+                    .estado(estadosEntrega[i % estadosEntrega.length])
+                    .geolocalizacionValidada(i % 2 == 0)
+                    .verificacionEdadHecha(false)
+                    .build());
+        }
     }
 
-    // ========== MÉTODOS AUXILIARES ==========
+    // ── Helpers ──
 
-    /**
-     * Genera un nombre aleatorio de la lista
-     */
-    private String generarNombreAleatorio() {
-        return NOMBRES.get(RANDOM.nextInt(NOMBRES.size()));
+    private static BigDecimal bd(String val) {
+        return new BigDecimal(val);
     }
 
-    /**
-     * Genera un apellido aleatorio de la lista
-     */
-    private String generarApellidoAleatorio() {
-        return APELLIDOS.get(RANDOM.nextInt(APELLIDOS.size()));
-    }
-
-    /**
-     * Genera un email con nombre y apellido
-     */
-    private String generarEmail(String nombre, String apellido, int index) {
-        return String.format("%s.%s%d@mabizz.test", nombre.toLowerCase(),
-                apellido.toLowerCase(), index);
-    }
-
-    /**
-     * Genera un teléfono aleatorio (formato colombiano)
-     */
-    private String generarTelefono() {
-        return "3" + (100000000 + RANDOM.nextInt(900000000));
-    }
-
-    /**
-     * Genera un slug a partir del nombre del negocio
-     */
-    private String generarSlug(String nombre) {
-        return nombre.toLowerCase()
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("^-|-$", "")
-                .substring(0, Math.min(50, nombre.length()));
-    }
-
-    /**
-     * Genera un número de pedido único
-     */
-    private String generarNumeroPedido() {
-        return "PED-" + System.currentTimeMillis() + "-" + RANDOM.nextInt(10000);
-    }
-
-    /**
-     * Genera un SKU único para productos
-     */
-    private String generarSKU() {
-        return "SKU-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-    }
-
-    /**
-     * Genera una fecha aleatoria en los últimos 6 meses
-     */
-    private Instant generarFechaAleatoria() {
-        long ahora = Instant.now().toEpochMilli();
-        long hace6Meses = ahora - (180L * 24 * 60 * 60 * 1000); // 180 días
-        long fechaAleatoria = hace6Meses + RANDOM.nextLong(ahora - hace6Meses);
-        return Instant.ofEpochMilli(fechaAleatoria);
+    /** Mutable holder to group per-tenant seeded entities */
+    private static class TenantBundle {
+        Tenant tenant;
+        List<Cliente> clientes = List.of();
+        List<Direccion> direcciones = List.of();
+        List<Producto> productos = List.of();
+        List<Pedido> pedidos = List.of();
     }
 }
