@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:migestion_dev}
-    username: ${DB_USER:migestion}
-    password: ${DB_PASSWORD:changeme}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:migestion_local}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -12,7 +12,8 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
-
+jwt:
+  secret: "aGVsbG93b3JsZHRoaXNpc2FzdXBlcnNlY3JldGtleWZvcmp3dHRva2Vucw=="
 stripe:
   api-key: ${STRIPE_API_KEY:sk_test_mock}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_mock}

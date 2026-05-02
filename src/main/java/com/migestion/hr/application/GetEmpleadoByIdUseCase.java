@@ -22,6 +22,6 @@ public class GetEmpleadoByIdUseCase {
     public EmpleadoResponse execute(Long id, Long tenantId) {
         return empleadoRepository.findByIdAndTenantId(id, tenantId)
                 .map(hrMapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Empleado", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException("Empleado", id));
     }
 }

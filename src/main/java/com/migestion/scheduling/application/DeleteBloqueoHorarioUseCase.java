@@ -19,7 +19,7 @@ public class DeleteBloqueoHorarioUseCase {
     @Transactional
     public void execute(Long id, Long tenantId) {
         BloqueoHorario bloqueo = bloqueoHorarioRepository.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> new ResourceNotFoundException("BloqueoHorario", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException("BloqueoHorario", id));
         bloqueo.setDeletedAt(Instant.now());
         bloqueoHorarioRepository.save(bloqueo);
     }

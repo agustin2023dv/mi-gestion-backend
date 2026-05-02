@@ -31,7 +31,7 @@ public class CalculatePayrollUseCase {
     @Transactional
     public NominaEmpleadoResponse execute(Long tenantId, CalculatePayrollRequest request) {
         Empleado empleado = empleadoRepository.findByIdAndTenantId(request.empleadoId(), tenantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Empleado", "id", request.empleadoId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Empleado", request.empleadoId()));
 
         BigDecimal sueldoBase = calculateBaseSalary(empleado, request);
         BigDecimal comisiones = empleado.getPorcentajeComision() != null
