@@ -9,6 +9,7 @@ import { Input } from '../../../shared/components/ui/input';
 import { useProducts } from '../hooks/use-products';
 import { catalogApi } from '../api/productos';
 import type { Category, Product } from '../types';
+import DeleteConfirmModal from '../../../shared/components/ui/delete-confirm-modal';
 
 const productSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido'),
@@ -30,8 +31,10 @@ interface ProductFormProps {
 export default function ProductForm({ isOpen, onClose, product }: ProductFormProps) {
   const [images, setImages] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const { addProduct, updateProduct } = useProducts();
+  const { addProduct, updateProduct, deleteProduct, isDeleting } = useProducts();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const {
     register,
@@ -85,6 +88,25 @@ export default function ProductForm({ isOpen, onClose, product }: ProductFormPro
 
   const handleFakeUpload = () => {
     setImages([...images, 'https://images.unsplash.com/photo-1602872030219-3df6d82497ac?auto=format&fit=crop&q=80&w=200']);
+  };
+
+  const handleDelete = async () => {
+    if (product) {
+      try {
+        setDeleteError(null);
+        await deleteProduct(product.id);
+        setIsDeleteModalOpen(false);
+        onClose();
+      } catch (error: any) {
+        console.error('Error deleting product:', error);
+        setDeleteError(error.response?.data?.message || 'Error al eliminar el producto.');
+      }
+    }
+  };
+
+  const handleOpenDelete = () => {
+    setDeleteError(null);
+    setIsDeleteModalOpen(true);
   };
 
   const onSubmit = async (data: ProductFormData) => {
@@ -233,15 +255,38 @@ export default function ProductForm({ isOpen, onClose, product }: ProductFormPro
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-col sm:flex-row gap-4 pt-8">
-                  <Button type="submit" isLoading={isSubmitting} className="flex-1">
-                    {product ? 'Actualizar Producto' : 'Guardar Producto'}
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={onClose} className="flex-1">Cancelar</Button>
+                <div className="flex flex-col gap-4 pt-8">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Button type="submit" isLoading={isSubmitting} className="flex-1">
+                      {product ? 'Actualizar Producto' : 'Guardar Producto'}
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={onClose} className="flex-1">Cancelar</Button>
+                  </div>
+                  
+                  {product && (
+                    <button
+                      type="button"
+                      onClick={handleOpenDelete}
+                      className="text-[10px] font-bold tracking-[0.2em] uppercase text-red-500 hover:text-red-700 transition-colors py-2 flex items-center justify-center gap-2 border-t border-stone-100 pt-6"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Eliminar permanentemente
+                    </button>
+                  )}
                 </div>
               </form>
             </div>
           </motion.div>
+
+          <DeleteConfirmModal
+            isOpen={isDeleteModalOpen}
+            onClose={() => setIsDeleteModalOpen(false)}
+            onConfirm={handleDelete}
+            title="¿Eliminar producto?"
+            description={`Estás por eliminar "${product?.nombre}". Esta acción es permanente.`}
+            isLoading={isDeleting}
+            error={deleteError}
+          />
         </>
       )}
     </AnimatePresence>

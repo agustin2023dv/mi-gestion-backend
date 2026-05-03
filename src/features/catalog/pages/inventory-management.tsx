@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, X, Package } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package } from 'lucide-react';
 import { DataTable } from '../../../shared/components/ui/data-table';
 import type { Column } from '../../../shared/components/ui/data-table'; // ✅ Import type
 import { Button } from '../../../shared/components/ui/button';
@@ -7,13 +7,16 @@ import { StatusBadge } from '../../../shared/components/ui/status-badge';
 import { useProducts } from '../hooks/use-products';
 import type { Product } from '../types';
 import ProductForm from '../components/product-form';
+import DeleteConfirmModal from '../../../shared/components/ui/delete-confirm-modal';
+import { useActionModal } from '../../../shared/hooks/use-action-modal';
 
 export default function InventoryManagement() {
   const [page, setPage] = useState(0);
   const pageSize = 20;
-  const { products, isLoading, totalElements, totalPages, markAsOutOfStock } = useProducts(page, pageSize);
+  const { products, isLoading, totalElements, totalPages, deleteProduct, isDeleting } = useProducts(page, pageSize);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const deleteModal = useActionModal<Product>((product) => deleteProduct(product.id));
 
   const handleOpenForm = (product: Product | null = null) => {
     setSelectedProduct(product);
@@ -72,18 +75,16 @@ export default function InventoryManagement() {
           >
             <Edit2 className="w-4 h-4" />
           </button>
-          {item.stock > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                markAsOutOfStock(item.id);
-              }}
-              className="p-2 text-stone-400 hover:text-rose-600 transition-colors"
-              title="Marcar como Agotado"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteModal.handleOpen(item);
+            }}
+            className="p-2 text-stone-400 hover:text-rose-600 transition-colors"
+            title="Eliminar Producto"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ),
       align: 'right',
@@ -172,6 +173,16 @@ export default function InventoryManagement() {
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         product={selectedProduct}
+      />
+
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={deleteModal.handleClose}
+        onConfirm={deleteModal.handleConfirm}
+        title="¿Eliminar producto?"
+        description={`Estás por eliminar "${deleteModal.itemToActOn?.nombre}". Esta acción es permanente.`}
+        isLoading={isDeleting}
+        error={deleteModal.error}
       />
     </div>
   );

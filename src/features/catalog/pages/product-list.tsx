@@ -14,6 +14,8 @@ import { useProducts } from '../hooks/use-products';
 import { DataTable, type Column } from '../../../shared/components/ui/data-table';
 import { useDebounce } from '../../../shared/hooks/use-debounce';
 import type { Product } from '../types';
+import DeleteConfirmModal from '../../../shared/components/ui/delete-confirm-modal';
+import { useActionModal } from '../../../shared/hooks/use-action-modal';
 
 export default function ProductList() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,7 +25,9 @@ export default function ProductList() {
   const [page, setPage] = useState(0);
   const pageSize = 20;
 
-  const { products, isLoading, isError, totalElements, totalPages } = useProducts(page, pageSize, debouncedSearch);
+  const { products, isLoading, isError, totalElements, totalPages, deleteProduct, isDeleting } = useProducts(page, pageSize, debouncedSearch);
+
+  const deleteModal = useActionModal<Product>((product) => deleteProduct(product.id));
 
   const handleOpenForm = (product: Product | null = null) => {
     setSelectedProduct(product);
@@ -89,10 +93,17 @@ export default function ProductList() {
           <button
             onClick={(e) => { e.stopPropagation(); handleOpenForm(product); }}
             className="p-2 text-stone-400 hover:text-stone-900 transition-colors"
+            title="Editar"
           >
             <Edit2 className="w-4 h-4" />
           </button>
-          <button className="p-2 text-stone-400 hover:text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); deleteModal.handleOpen(product); }}
+            className="p-2 text-stone-400 hover:text-red-600 transition-colors"
+            title="Eliminar"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
           <button className="p-2 text-stone-400 hover:text-stone-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
         </div>
       ),
@@ -144,6 +155,16 @@ export default function ProductList() {
         isOpen={isFormOpen}
         onClose={handleCloseForm}
         product={selectedProduct}
+      />
+
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={deleteModal.handleClose}
+        onConfirm={deleteModal.handleConfirm}
+        title="¿Eliminar producto?"
+        description={`Estás por eliminar "${deleteModal.itemToActOn?.nombre}". Esta acción es permanente y afectará tu inventario.`}
+        isLoading={isDeleting}
+        error={deleteModal.error}
       />
     </div>
   );
