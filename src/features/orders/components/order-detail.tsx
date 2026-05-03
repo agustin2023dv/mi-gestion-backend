@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, MapPin, Phone, Package, CreditCard, ChevronDown } from 'lucide-react';
 import { Button } from '../../../shared/components/ui/button';
