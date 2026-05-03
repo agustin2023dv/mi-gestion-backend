@@ -19,6 +19,13 @@ const STATUS_STYLES: Record<string, string> = {
   DELIVERED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   CANCELLED: 'bg-rose-50 text-rose-700 border-rose-200',
   
+  // Logistics
+  PENDIENTE: 'bg-blue-50 text-blue-700 border-blue-200',
+  ASIGNADA: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  EN_CAMINO: 'bg-amber-50 text-amber-700 border-amber-200',
+  ENTREGADA: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  CANCELADA: 'bg-rose-50 text-rose-700 border-rose-200',
+
   // Customers
   VIP: 'bg-stone-900 text-white border-stone-900',
   Recurrente: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -35,6 +42,11 @@ const STATUS_LABELS: Record<string, string> = {
   SHIPPED: 'En Camino',
   DELIVERED: 'Entregado',
   CANCELLED: 'Cancelado',
+  PENDIENTE: 'Nueva',
+  ASIGNADA: 'Asignada',
+  EN_CAMINO: 'En Camino',
+  ENTREGADA: 'Completado',
+  CANCELADA: 'Cancelado',
   VIP: 'VIP',
   Recurrente: 'Recurrente',
   Nuevo: 'Nuevo',
