@@ -11,7 +11,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, suffix, ...props }, ref) => {
     return (
-      <div className="flex flex-col space-y-1 mb-6 relative w-full">
+      <div className="flex flex-col space-y-1 mb-4 relative w-full">
         <label className="text-[10px] font-bold tracking-[0.2em] uppercase text-stone-500 mb-1">
           {label}
         </label>

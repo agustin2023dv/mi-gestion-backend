@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 
 interface PageHeaderProps {
@@ -24,7 +24,7 @@ export function PageHeader({ title, description, children }: PageHeaderProps) {
         )}
       </motion.div>
       {children && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-4"
