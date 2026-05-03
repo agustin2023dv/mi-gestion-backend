@@ -23,3 +23,8 @@ docs
 *.njsproj
 *.sln
 *.sw?
+
+.env
+.env.development
+.env.production
+.env.test
