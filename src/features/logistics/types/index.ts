@@ -1,4 +1,4 @@
-export type DeliveryStatus = 'PENDIENTE' | 'ASIGNADA' | 'EN_CAMINO' | 'ENTREGADA';
+export type DeliveryStatus = 'PENDIENTE' | 'ASIGNADA' | 'EN_CAMINO' | 'ENTREGADA' | 'CANCELADA';
 
 export interface Delivery {
   id: number;
@@ -16,6 +16,8 @@ export interface Delivery {
   updatedAt: string;
   pedido: DeliveryOrder;
   repartidor: DeliveryCourier | null;
+  motivoCancelacion?: string;
+  notasCancelacion?: string;
 }
 
 export interface DeliveryOrder {
@@ -57,6 +59,8 @@ export interface UpdateStatusRequest {
   latitud?: number;
   longitud?: number;
   codigoEntrega?: string;
+  motivoCancelacion?: string;
+  notasCancelacion?: string;
 }
 
 export interface AssignCourierRequest {
