@@ -2,23 +2,16 @@ package com.migestion.platform.application;
 
 import com.migestion.platform.domain.PlanSuscripcion;
 import com.migestion.platform.domain.PlanSuscripcionRepository;
-import com.migestion.platform.domain.SuperAdmin;
-import com.migestion.platform.domain.SuperAdminRepository;
 import com.migestion.platform.dto.CreateTenantRequest;
 import com.migestion.platform.dto.TenantResponse;
 import com.migestion.platform.infrastructure.mapper.PlatformMapper;
 import com.migestion.shared.exception.BusinessRuleViolationException;
 import com.migestion.shared.exception.ResourceNotFoundException;
-import com.migestion.shared.security.AuthenticatedUserDetails;
 import com.migestion.tenant.domain.Tenant;
 import com.migestion.tenant.domain.TenantRepository;
 import com.migestion.tenant.domain.UsuarioTenant;
 import com.migestion.tenant.domain.UsuarioTenantRepository;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +23,6 @@ public class CreateTenantUseCase {
 
     private static final String PROPIETARIO_ROL = "propietario";
 
-    private final SuperAdminRepository superAdminRepository;
     private final TenantRepository tenantRepository;
     private final UsuarioTenantRepository usuarioTenantRepository;
     private final PlanSuscripcionRepository planSuscripcionRepository;
@@ -38,12 +30,17 @@ public class CreateTenantUseCase {
     private final PlatformMapper platformMapper;
 
     public TenantResponse execute(CreateTenantRequest request) {
-        requireSuperAdmin();
 
         if (tenantRepository.findBySlug(request.getSlug()).isPresent()) {
             throw new BusinessRuleViolationException(
                     "DUPLICATE_SLUG",
                     "Slug '" + request.getSlug() + "' is already in use");
+        }
+
+        if (tenantRepository.findByTenantIdentifier(request.getSlug()).isPresent()) {
+            throw new BusinessRuleViolationException(
+                    "DUPLICATE_TENANT_ID",
+                    "Tenant identifier '" + request.getSlug() + "' is already in use");
         }
 
         if (usuarioTenantRepository.existsByEmailIgnoreCase(request.getPropietarioEmail())) {
@@ -62,24 +59,23 @@ public class CreateTenantUseCase {
                 .slug(request.getSlug())
                 .planSuscripcionId(request.getPlanSuscripcionId())
                 .build();
-        tenant = tenantRepository.save(tenant);
+        tenant = tenantRepository.saveAndFlush(tenant);
 
-        // Create propietario UsuarioTenant with a temporary random password
-        String rawTempPassword = UUID.randomUUID().toString();
+        // Create propietario UsuarioTenant with the provided password
         UsuarioTenant propietario = UsuarioTenant.builder()
                 .tenantId(tenant.getId())
                 .email(request.getPropietarioEmail())
-                .passwordHash(passwordEncoder.encode(rawTempPassword))
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .nombre(request.getPropietarioNombre())
                 .apellido(request.getPropietarioApellido())
                 .telefono(request.getPropietarioTelefono())
                 .rol(PROPIETARIO_ROL)
                 .build();
-        propietario = usuarioTenantRepository.save(propietario);
+        propietario = usuarioTenantRepository.saveAndFlush(propietario);
 
         // Link propietario back to tenant
         tenant.setPropietarioId(propietario.getId());
-        tenant = tenantRepository.save(tenant);
+        tenant = tenantRepository.saveAndFlush(tenant);
 
         TenantResponse.PropietarioResponse propietarioResponse = TenantResponse.PropietarioResponse.builder()
                 .id(propietario.getId())
@@ -90,16 +86,5 @@ public class CreateTenantUseCase {
                 .build();
 
         return platformMapper.toTenantResponse(tenant, plan, propietarioResponse);
-    }
-
-    private void requireSuperAdmin() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            throw new AccessDeniedException("Authentication required");
-        }
-        AuthenticatedUserDetails userDetails = (AuthenticatedUserDetails) auth.getPrincipal();
-        superAdminRepository.findByEmailIgnoreCase(userDetails.getEmail())
-                .filter(SuperAdmin::isActive)
-                .orElseThrow(() -> new AccessDeniedException("Access denied: SuperAdmin only"));
     }
 }

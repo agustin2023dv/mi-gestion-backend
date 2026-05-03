@@ -49,4 +49,12 @@ public class CreateTenantRequest {
 
     @Size(max = 50, message = "Propietario telefono must be at most 50 characters")
     private String propietarioTelefono;
+
+    @NotBlank(message = "Password is required")
+    @Size(min = 8, message = "Password must be at least 8 characters")
+    @Pattern(
+        regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$",
+        message = "Password must contain at least one letter and one digit"
+    )
+    private String password;
 }

@@ -70,14 +70,19 @@ class AuthServiceTest {
                 .tenantId(22L)
                 .role("CLIENTE")
                 .permissions(List.of("PEDIDO_READ"))
+                .userProfile(JwtResponse.UserProfile.builder()
+                        .email("cliente@test.com")
+                        .nombre("Test")
+                        .apellido("User")
+                        .build())
                 .build();
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
-        when(jwtTokenProvider.generateAccessToken(10L, 22L, "CLIENTE", List.of("PEDIDO_READ")))
+        when(jwtTokenProvider.generateAccessToken(10L, 22L, "CLIENTE", List.of("PEDIDO_READ"), "cliente@test.com", "Test", "User"))
                 .thenReturn("access-token");
-        when(jwtTokenProvider.generateRefreshToken(10L, 22L, "CLIENTE", List.of("PEDIDO_READ")))
+        when(jwtTokenProvider.generateRefreshToken(10L, 22L, "CLIENTE", List.of("PEDIDO_READ"), "cliente@test.com", "Test", "User"))
                 .thenReturn("refresh-token");
 
         // Act
@@ -126,11 +131,12 @@ class AuthServiceTest {
         when(clienteRepository.save(any(Cliente.class))).thenAnswer(invocation -> {
                         Cliente savedCliente = org.mockito.Mockito.mock(Cliente.class);
                         when(savedCliente.getId()).thenReturn(501L);
+                        when(savedCliente.getEmail()).thenReturn("ana@test.com");
                         return savedCliente;
         });
-        when(jwtTokenProvider.generateAccessToken(501L, 77L, "CLIENTE", List.of()))
+        when(jwtTokenProvider.generateAccessToken(501L, 77L, "CLIENTE", List.of(), "ana@test.com", null, null))
                 .thenReturn("access-token");
-        when(jwtTokenProvider.generateRefreshToken(501L, 77L, "CLIENTE", List.of()))
+        when(jwtTokenProvider.generateRefreshToken(501L, 77L, "CLIENTE", List.of(), "ana@test.com", null, null))
                 .thenReturn("refresh-token");
 
         ArgumentCaptor<Cliente> clienteCaptor = ArgumentCaptor.forClass(Cliente.class);
@@ -190,11 +196,12 @@ class AuthServiceTest {
                 when(clienteRepository.save(any(Cliente.class))).thenAnswer(invocation -> {
                         Cliente savedCliente = org.mockito.Mockito.mock(Cliente.class);
                         when(savedCliente.getId()).thenReturn(601L);
+                        when(savedCliente.getEmail()).thenReturn("ana-resolved@test.com");
                         return savedCliente;
                 });
-                when(jwtTokenProvider.generateAccessToken(601L, 88L, "CLIENTE", List.of()))
+                when(jwtTokenProvider.generateAccessToken(601L, 88L, "CLIENTE", List.of(), "ana-resolved@test.com", null, null))
                                 .thenReturn("access-token");
-                when(jwtTokenProvider.generateRefreshToken(601L, 88L, "CLIENTE", List.of()))
+                when(jwtTokenProvider.generateRefreshToken(601L, 88L, "CLIENTE", List.of(), "ana-resolved@test.com", null, null))
                                 .thenReturn("refresh-token");
 
                 ArgumentCaptor<Cliente> clienteCaptor = ArgumentCaptor.forClass(Cliente.class);
@@ -219,7 +226,10 @@ class AuthServiceTest {
         when(claims.getSubject()).thenReturn("11");
         when(claims.get("tenant_id", Long.class)).thenReturn(44L);
         when(claims.get("role", String.class)).thenReturn("CLIENTE");
-        when(jwtTokenProvider.generateAccessToken(11L, 44L, "CLIENTE", List.of()))
+        when(claims.get("email", String.class)).thenReturn("refreshed@test.com");
+        when(claims.get("nombre", String.class)).thenReturn("Juan");
+        when(claims.get("apellido", String.class)).thenReturn("Perez");
+        when(jwtTokenProvider.generateAccessToken(11L, 44L, "CLIENTE", List.of(), "refreshed@test.com", "Juan", "Perez"))
                 .thenReturn("new-access-token");
 
         // Act

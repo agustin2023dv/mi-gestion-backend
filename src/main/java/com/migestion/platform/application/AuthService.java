@@ -12,24 +12,28 @@ import com.migestion.tenant.domain.ClienteRepository;
 import io.jsonwebtoken.Claims;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Authentication service handling login, registration, token refresh, and logout.
  * Orchestrates authentication flows, JWT token generation, and user management.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class AuthService {
 
   private static final String CLIENTE_ROLE = "CLIENTE";
-  private static final long ACCESS_TOKEN_TTL_SECONDS = 900; // 15 minutes
+  private static final long ACCESS_TOKEN_TTL_SECONDS = 604800; // 7 days
 
   private final AuthenticationManager authenticationManager;
   private final JwtTokenProvider jwtTokenProvider;
@@ -60,14 +64,20 @@ public class AuthService {
           userDetails.getId(),
           userDetails.getTenantId(),
           userDetails.getRole(),
-          userDetails.getPermissions()
+          userDetails.getPermissions(),
+          userDetails.getUserProfile().getEmail(),
+          userDetails.getUserProfile().getNombre(),
+          userDetails.getUserProfile().getApellido()
       );
 
       String refreshToken = jwtTokenProvider.generateRefreshToken(
           userDetails.getId(),
           userDetails.getTenantId(),
           userDetails.getRole(),
-          userDetails.getPermissions()
+          userDetails.getPermissions(),
+          userDetails.getUserProfile().getEmail(),
+          userDetails.getUserProfile().getNombre(),
+          userDetails.getUserProfile().getApellido()
       );
 
       return JwtResponse.builder()
@@ -119,14 +129,20 @@ public class AuthService {
         savedCliente.getId(),
         tenantId,
         CLIENTE_ROLE,
-        List.of()
+        List.of(),
+        savedCliente.getEmail(),
+        null,
+        null
     );
 
     String refreshToken = jwtTokenProvider.generateRefreshToken(
         savedCliente.getId(),
         tenantId,
         CLIENTE_ROLE,
-        List.of()
+        List.of(),
+        savedCliente.getEmail(),
+        null,
+        null
     );
 
     return JwtResponse.builder()
@@ -158,12 +174,18 @@ public class AuthService {
     Long userId = Long.parseLong(claims.getSubject());
     Long tenantId = claims.get("tenant_id", Long.class);
     String role = claims.get("role", String.class);
+    String email = claims.get("email", String.class);
+    String nombre = claims.get("nombre", String.class);
+    String apellido = claims.get("apellido", String.class);
 
     String newAccessToken = jwtTokenProvider.generateAccessToken(
         userId,
         tenantId,
         role,
-        List.of()
+        List.of(),
+        email,
+        nombre,
+        apellido
     );
 
     return JwtResponse.builder()
@@ -181,7 +203,16 @@ public class AuthService {
    * @param accessToken the access token to invalidate
    */
   public void logout(String accessToken) {
-    jwtTokenProvider.invalidateToken(accessToken);
+    try {
+      log.debug("Attempting to invalidate access token");
+      jwtTokenProvider.invalidateToken(accessToken);
+    } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+      log.warn("Logout attempted with invalid or expired token: {}", e.getMessage());
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired token");
+    } catch (Exception e) {
+      log.error("Internal failure during token invalidation (e.g., Redis down): {}", e.getMessage(), e);
+      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to complete logout");
+    }
   }
 
   /**

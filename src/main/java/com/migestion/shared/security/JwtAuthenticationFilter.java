@@ -1,5 +1,6 @@
 package com.migestion.shared.security;
 
+import com.migestion.platform.dto.JwtResponse.UserProfile;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -14,8 +15,6 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -43,11 +42,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtTokenProvider.validateToken(token)
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
                 Claims claims = jwtTokenProvider.extractClaims(token);
+                AuthenticatedUserDetails userDetails = buildUserDetails(claims);
+                
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                claims.getSubject(),
+                                userDetails,
                                 null,
-                                extractAuthorities(claims));
+                                userDetails.getAuthorities());
                 authentication.setDetails(extractDetails(claims));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
@@ -56,25 +57,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private Collection<GrantedAuthority> extractAuthorities(Claims claims) {
-        List<GrantedAuthority> authorities = new ArrayList<>();
-
+    private AuthenticatedUserDetails buildUserDetails(Claims claims) {
+        Long userId = Long.parseLong(claims.getSubject());
+        Long tenantId = claims.get(TENANT_ID_CLAIM, Long.class);
         String role = claims.get(ROLE_CLAIM, String.class);
-        if (role != null && !role.isBlank()) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
-        }
+        String email = claims.get("email", String.class);
+        String nombre = claims.get("nombre", String.class);
+        String apellido = claims.get("apellido", String.class);
 
+        List<String> permissions = new ArrayList<>();
         Object permissionsClaim = claims.get(PERMISSIONS_CLAIM);
         if (permissionsClaim instanceof Collection<?> permissionValues) {
             permissionValues.stream()
                     .filter(String.class::isInstance)
                     .map(String.class::cast)
-                    .filter(permission -> !permission.isBlank())
-                    .map(SimpleGrantedAuthority::new)
-                    .forEach(authorities::add);
+                    .forEach(permissions::add);
         }
 
-        return List.copyOf(authorities);
+        UserProfile profile = UserProfile.builder()
+                .id(userId)
+                .email(email)
+                .nombre(nombre)
+                .apellido(apellido)
+                .role(role)
+                .tenantId(tenantId)
+                .build();
+
+        return AuthenticatedUserDetails.builder()
+                .id(userId)
+                .email(email)
+                .tenantId(tenantId)
+                .role(role)
+                .permissions(permissions)
+                .userProfile(profile)
+                .build();
     }
 
     private Map<String, Object> extractDetails(Claims claims) {

@@ -25,11 +25,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtTokenProvider {
 
-    private static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
+    private static final Duration ACCESS_TOKEN_TTL = Duration.ofDays(7);
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(7);
     private static final String TENANT_ID_CLAIM = "tenant_id";
     private static final String ROLE_CLAIM = "role";
     private static final String PERMISSIONS_CLAIM = "permissions";
+    private static final String EMAIL_CLAIM = "email";
+    private static final String NOMBRE_CLAIM = "nombre";
+    private static final String APELLIDO_CLAIM = "apellido";
     private static final String BLACKLIST_KEY_PREFIX = "security:jwt:blacklist:";
 
     private final StringRedisTemplate stringRedisTemplate;
@@ -46,16 +49,22 @@ public class JwtTokenProvider {
             Long userId,
             Long tenantId,
             String role,
-            Collection<String> permissions) {
-        return generateToken(userId, tenantId, role, permissions, ACCESS_TOKEN_TTL);
+            Collection<String> permissions,
+            String email,
+            String nombre,
+            String apellido) {
+        return generateToken(userId, tenantId, role, permissions, email, nombre, apellido, ACCESS_TOKEN_TTL);
     }
 
     public String generateRefreshToken(
             Long userId,
             Long tenantId,
             String role,
-            Collection<String> permissions) {
-        return generateToken(userId, tenantId, role, permissions, REFRESH_TOKEN_TTL);
+            Collection<String> permissions,
+            String email,
+            String nombre,
+            String apellido) {
+        return generateToken(userId, tenantId, role, permissions, email, nombre, apellido, REFRESH_TOKEN_TTL);
     }
 
     public boolean validateToken(String token) {
@@ -111,6 +120,9 @@ public class JwtTokenProvider {
             Long tenantId,
             String role,
             Collection<String> permissions,
+            String email,
+            String nombre,
+            String apellido,
             Duration ttl) {
         String normalizedRole = Objects.requireNonNull(role, "role must not be null").trim();
         if (normalizedRole.isEmpty()) {
@@ -121,12 +133,17 @@ public class JwtTokenProvider {
         Instant expiration = now.plus(ttl.toSeconds(), ChronoUnit.SECONDS);
         String jti = UUID.randomUUID().toString();
 
+        log.debug("[JWT] Generating token — Sub: {}, Email: {}, Role: {}, Tenant: {}", userId, email, normalizedRole, tenantId);
+
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .id(jti)
                 .claim(TENANT_ID_CLAIM, tenantId)
                 .claim(ROLE_CLAIM, normalizedRole)
                 .claim(PERMISSIONS_CLAIM, permissions)
+                .claim(EMAIL_CLAIM, email)
+                .claim(NOMBRE_CLAIM, nombre)
+                .claim(APELLIDO_CLAIM, apellido)
                 .claim(Claims.ID, jti)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiration))

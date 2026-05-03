@@ -2,18 +2,22 @@ package com.migestion.orders.infrastructure;
 
 import com.migestion.orders.application.CreateOrderUseCase;
 import com.migestion.orders.application.GetPedidoUseCase;
+import com.migestion.orders.application.SearchPedidosUseCase;
 import com.migestion.orders.application.TrackPedidoUseCase;
 import com.migestion.orders.dto.CreatePedidoRequest;
 import com.migestion.orders.dto.PedidoResponse;
 import com.migestion.orders.dto.PedidoTrackingResponse;
 import com.migestion.shared.dto.ApiResponse;
+import com.migestion.shared.dto.PageResponse;
 import com.migestion.shared.exception.BusinessRuleViolationException;
 import com.migestion.shared.security.AuthenticatedUserDetails;
 import com.migestion.shared.security.TenantContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,14 +33,17 @@ public class PedidoController {
     private final CreateOrderUseCase createOrderUseCase;
     private final GetPedidoUseCase getPedidoUseCase;
     private final TrackPedidoUseCase trackPedidoUseCase;
+    private final SearchPedidosUseCase searchPedidosUseCase;
 
     public PedidoController(
             CreateOrderUseCase createOrderUseCase,
             GetPedidoUseCase getPedidoUseCase,
-            TrackPedidoUseCase trackPedidoUseCase) {
+            TrackPedidoUseCase trackPedidoUseCase,
+            SearchPedidosUseCase searchPedidosUseCase) {
         this.createOrderUseCase = createOrderUseCase;
         this.getPedidoUseCase = getPedidoUseCase;
         this.trackPedidoUseCase = trackPedidoUseCase;
+        this.searchPedidosUseCase = searchPedidosUseCase;
     }
 
     /**
@@ -60,6 +67,30 @@ public class PedidoController {
 
         PedidoResponse response = createOrderUseCase.execute(request, tenantId, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
+    }
+
+    /**
+     * GET /api/v1/pedidos
+     * Lists orders for the current tenant with pagination and sorting.
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<PageResponse<PedidoResponse>>> list(
+            Pageable pageable,
+            @AuthenticationPrincipal AuthenticatedUserDetails user) {
+
+        if (user == null) {
+            throw new AccessDeniedException("Authentication required to list orders");
+        }
+
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId == null) {
+            throw new BusinessRuleViolationException(
+                    "TENANT_CONTEXT_REQUIRED",
+                    "Tenant context is required");
+        }
+
+        PageResponse<PedidoResponse> response = searchPedidosUseCase.execute(tenantId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     // NOTE: Spring Security 7 dropped required=false on @AuthenticationPrincipal;

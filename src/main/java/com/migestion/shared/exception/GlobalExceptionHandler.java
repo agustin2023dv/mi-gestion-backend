@@ -156,7 +156,7 @@ public class GlobalExceptionHandler {
             .data(null)
             .error(ErrorResponse.ErrorDetails.builder()
                 .code("INTERNAL_SERVER_ERROR")
-                .message("An unexpected error occurred. Please contact support.")
+                .message("An unexpected error occurred: " + ex.getMessage())
                 .details(null)
                 .build())
             .timestamp(Instant.now())
