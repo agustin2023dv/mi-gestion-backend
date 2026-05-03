@@ -1,31 +1,31 @@
 import { useState } from 'react';
 import {
   Plus,
-  Search,
-  Filter,
   MoreVertical,
   Edit2,
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Package
 } from 'lucide-react';
 import { Button } from '../../../shared/components/ui/button';
 import { cn } from '../../../shared/utils/cn';
 import ProductForm from '../components/product-form';
-
-const MOCK_PRODUCTS = [
-  { id: 1, name: 'Vela Minimalista Sándalo', category: 'Hogar', price: 1200, stock: 15, status: 'Active' },
-  { id: 2, name: 'Difusor Lavanda', category: 'Hogar', price: 2500, stock: 2, status: 'Low Stock' },
-  { id: 3, name: 'Set de Cerámica Oasis', category: 'Decoración', price: 5800, stock: 0, status: 'Out of Stock' },
-  { id: 4, name: 'Jabón Orgánico Coco', category: 'Belleza', price: 850, stock: 45, status: 'Active' },
-  { id: 5, name: 'Espejo Sol', category: 'Decoración', price: 12400, stock: 5, status: 'Active' },
-];
+import { useProducts } from '../hooks/use-products';
+import { DataTable, type Column } from '../../../shared/components/ui/data-table';
+import { useDebounce } from '../../../shared/hooks/use-debounce';
+import type { Product } from '../types';
 
 export default function ProductList() {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 500);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
 
-  const handleOpenForm = (product: any = null) => {
+  const { products, isLoading, isError, totalElements, totalPages } = useProducts(page, pageSize, debouncedSearch);
+
+  const handleOpenForm = (product: Product | null = null) => {
     setSelectedProduct(product);
     setIsFormOpen(true);
   };
@@ -34,6 +34,78 @@ export default function ProductList() {
     setIsFormOpen(false);
     setSelectedProduct(null);
   };
+
+  const columns: Column<Product>[] = [
+    {
+      header: 'Producto',
+      accessor: (product) => (
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-stone-100 flex items-center justify-center text-stone-300 overflow-hidden">
+            {product.imagenUrl ? (
+              <img src={product.imagenUrl} alt={product.nombre} className="w-full h-full object-cover" />
+            ) : (
+              <ImageIcon className="w-5 h-5" />
+            )}
+          </div>
+          <span className="text-sm font-bold text-stone-900 uppercase tracking-wide">{product.nombre}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Categoría',
+      accessor: (product) => <span className="text-xs font-medium text-stone-500">ID: {product.subcategoriaId}</span>,
+    },
+    {
+      header: 'Precio',
+      accessor: (product) => <span className="font-serif text-lg text-stone-900">${product.precio}</span>,
+    },
+    {
+      header: 'Stock',
+      accessor: (product) => (
+        <span className={cn(
+          "text-sm font-bold",
+          product.stock === 0 ? "text-red-500" : product.stock < (product.stockMinimo || 5) ? "text-orange-500" : "text-stone-900"
+        )}>
+          {product.stock} un.
+        </span>
+      ),
+    },
+    {
+      header: 'Estado',
+      accessor: (product) => (
+        <span className={cn(
+          "px-2 py-1 text-[9px] font-bold tracking-widest uppercase",
+          product.isActive ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+        )}>
+          {product.isActive ? 'Activo' : 'Inactivo'}
+        </span>
+      ),
+    },
+    {
+      header: '',
+      align: 'right',
+      accessor: (product) => (
+        <div className="flex justify-end space-x-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleOpenForm(product); }}
+            className="p-2 text-stone-400 hover:text-stone-900 transition-colors"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button className="p-2 text-stone-400 hover:text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
+          <button className="p-2 text-stone-400 hover:text-stone-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
+        </div>
+      ),
+    },
+  ];
+
+  if (isError) {
+    return (
+      <div className="p-8 text-center bg-red-50 border border-red-100 rounded-2xl text-red-600">
+        Error al cargar el catálogo. Por favor, intenta de nuevo.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -48,90 +120,26 @@ export default function ProductList() {
         </Button>
       </div>
 
-      {/* Filters & Search */}
-      <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 border border-stone-100">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-          <input
-            type="text"
-            placeholder="Buscar productos..."
-            className="w-full pl-10 pr-4 py-2 bg-stone-50 border-none focus:ring-1 focus:ring-stone-900 text-sm outline-none transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <Button variant="secondary" size="sm" className="flex-1 md:flex-none">
-            <Filter className="w-3 h-3 mr-2" /> Filtros
-          </Button>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={products}
+        isLoading={isLoading}
+        onRowClick={handleOpenForm}
+        searchPlaceholder="Buscar productos..."
+        onSearch={setSearchTerm}
+        searchValue={searchTerm}
+        page={page}
+        totalPages={totalPages}
+        totalElements={totalElements}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        emptyState={{
+          title: 'No hay productos',
+          description: 'Tu catálogo está vacío. Comenzá agregando tu primer producto.',
+          icon: <Package className="w-8 h-8 text-stone-200" />
+        }}
+      />
 
-      {/* Product Table */}
-      <div className="bg-white border border-stone-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-stone-100 bg-stone-50/50">
-                <th className="px-6 py-4 text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400">Producto</th>
-                <th className="px-6 py-4 text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400">Categoría</th>
-                <th className="px-6 py-4 text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400">Precio</th>
-                <th className="px-6 py-4 text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400">Stock</th>
-                <th className="px-6 py-4 text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400">Estado</th>
-                <th className="px-6 py-4 text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-50">
-              {MOCK_PRODUCTS.map((product) => (
-                <tr key={product.id} className="group hover:bg-stone-50/30 transition-colors">
-                  <td className="px-6 py-5">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-stone-100 flex items-center justify-center text-stone-300">
-                        <ImageIcon className="w-5 h-5" />
-                      </div>
-                      <span className="text-sm font-bold text-stone-900 uppercase tracking-wide">{product.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-xs font-medium text-stone-500">{product.category}</td>
-                  <td className="px-6 py-5 font-serif text-lg text-stone-900">${product.price}</td>
-                  <td className="px-6 py-5">
-                    <span className={cn(
-                      "text-sm font-bold",
-                      product.stock === 0 ? "text-red-500" : product.stock < 5 ? "text-orange-500" : "text-stone-900"
-                    )}>
-                      {product.stock} un.
-                    </span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className={cn(
-                      "px-2 py-1 text-[9px] font-bold tracking-widest uppercase",
-                      product.status === 'Active' ? "bg-green-50 text-green-600" :
-                        product.status === 'Low Stock' ? "bg-orange-50 text-orange-600" :
-                          "bg-red-50 text-red-600"
-                    )}>
-                      {product.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => handleOpenForm(product)}
-                        className="p-2 text-stone-400 hover:text-stone-900 transition-colors"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-stone-400 hover:text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                      <button className="p-2 text-stone-400 hover:text-stone-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Slide-over Form */}
       <ProductForm
         isOpen={isFormOpen}
         onClose={handleCloseForm}
