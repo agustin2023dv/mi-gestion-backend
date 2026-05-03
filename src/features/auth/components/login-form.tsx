@@ -1,73 +1,84 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
-import { AuthFormProps } from '../types';
+import { AuthFormWrapper } from './auth-form-wrapper';
+import { authApi } from '../api/auth';
+import type { AuthFormProps } from '../types';
+import { decodeJwt } from '../../../shared/utils/jwt-utils';
+
+const loginSchema = z.object({
+  email: z.string().email('Por favor, ingresá un email válido.'),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
+  remember: z.boolean().optional(),
+});
+
+import { useFormAction } from '../../../shared/hooks/use-form-action';
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm({ setView, onLogin }: AuthFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    
-    if (!email.includes('@')) {
-      setError('Por favor, ingresá un email válido.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    setTimeout(() => {
-      setIsLoading(false);
-      if (email === 'admin@mabizz.com' && password === '123456') {
-        onLogin?.();
-      } else {
-        setError('Credenciales incorrectas. Intenta con admin@mabizz.com / 123456');
+  const { execute, isLoading, error: serverError } = useFormAction(authApi.login, {
+    onSuccess: (data) => {
+      console.log('[LoginForm] Login successful, calling onLogin with token...');
+      const token = data.accessToken;
+      
+      // Extract tenantId from JWT if possible
+      const payload = decodeJwt(token);
+      if (payload?.tenantId) {
+        localStorage.setItem('tenant_id', payload.tenantId);
+        console.log('[LoginForm] Extracted and saved tenantId:', payload.tenantId);
       }
-    }, 1200);
+
+      onLogin?.(token);
+    }
+  });
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      remember: false,
+    }
+  });
+
+  const onSubmit = (data: LoginFormValues) => {
+    console.log('[LoginForm] Submit initiated with data:', { email: data.email, remember: data.remember });
+    execute({
+      email: data.email,
+      password: data.password,
+    });
   };
 
   return (
-    <motion.div
-      key="login"
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+    <AuthFormWrapper
+      title="Iniciar Sesión"
+      subtitle="Bienvenido de nuevo a mi-gestion."
+      showBack={false}
     >
-      <div className="mb-12">
-        <h2 className="font-serif text-4xl lg:text-5xl mb-3 text-stone-900">Iniciar Sesión</h2>
-        <p className="text-stone-500 font-medium">Bienvenido de nuevo a mi-gestion.</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <Input
           label="Email"
           type="email"
-          required
           placeholder="nombre@ejemplo.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          error={errors.email?.message}
+          {...register('email')}
         />
         <Input
           label="Contraseña"
           type="password"
-          required
           placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          error={errors.password?.message}
+          {...register('password')}
         />
 
         <AnimatePresence>
-          {error && (
+          {serverError && (
             <motion.p 
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -75,15 +86,19 @@ export function LoginForm({ setView, onLogin }: AuthFormProps) {
               className="text-red-600 text-sm mb-4 font-medium" 
               role="alert"
             >
-              {error}
+              {serverError}
             </motion.p>
           )}
         </AnimatePresence>
 
-        <div className="flex items-center justify-between mt-6 mb-8 pt-2">
+        <div className="flex items-center justify-between mt-4 mb-6 pt-1">
           <label className="flex items-center space-x-3 cursor-pointer group">
             <div className="relative flex items-center justify-center">
-              <input type="checkbox" className="peer sr-only" />
+              <input 
+                type="checkbox" 
+                className="peer sr-only"
+                {...register('remember')}
+              />
               <div className="w-4 h-4 border border-stone-300 peer-checked:bg-stone-900 peer-checked:border-stone-900 transition-colors"></div>
               <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </div>
@@ -98,10 +113,10 @@ export function LoginForm({ setView, onLogin }: AuthFormProps) {
           </button>
         </div>
 
-        <Button type="submit" isLoading={isLoading}>Entrar</Button>
+        <Button type="submit" isLoading={isLoading} className="w-full">Entrar</Button>
       </form>
 
-      <div className="mt-12 text-center text-sm font-medium text-stone-500">
+      <div className="mt-8 text-center text-sm font-medium text-stone-500">
         ¿No tenés una cuenta?{' '}
         <button
           onClick={() => setView('register')}
@@ -110,6 +125,7 @@ export function LoginForm({ setView, onLogin }: AuthFormProps) {
           Crear cuenta
         </button>
       </div>
-    </motion.div>
+    </AuthFormWrapper>
   );
 }
+

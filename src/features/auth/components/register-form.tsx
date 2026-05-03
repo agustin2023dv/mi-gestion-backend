@@ -1,20 +1,54 @@
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { motion } from 'framer-motion';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
-import { AuthFormProps } from '../types';
+import { AuthFormWrapper } from './auth-form-wrapper';
+import type { AuthFormProps } from '../types';
+import { authApi } from '../api/auth';
+
+const registerSchema = z.object({
+  nombreNegocio: z.string().min(1, 'El nombre del negocio es requerido').max(150),
+  slug: z.string()
+    .min(1, 'El slug es requerido')
+    .max(150)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'El slug solo puede contener letras minúsculas, números y guiones'),
+  planSuscripcionId: z.number().positive(),
+  propietarioNombre: z.string().min(1, 'El nombre es requerido').max(100),
+  propietarioApellido: z.string().min(1, 'El apellido es requerido').max(100),
+  propietarioEmail: z.string().email('Email inválido').max(255),
+  propietarioTelefono: z.string().max(50).optional().or(z.literal('')),
+  password: z.string()
+    .min(8, 'La contraseña debe tener al menos 8 caracteres')
+    .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, 'Debe contener al menos una letra y un número'),
+});
+
+import { useFormAction } from '../../../shared/hooks/use-form-action';
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export function RegisterForm({ setView }: AuthFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setSuccess(true);
-    }, 1500);
+  const { execute, isLoading } = useFormAction(authApi.registerTenant, {
+    onSuccess: () => setSuccess(true),
+  });
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      planSuscripcionId: 1, // Default plan
+    }
+  });
+
+  const onSubmit = (data: RegisterFormValues) => {
+    execute(data);
   };
 
   if (success) {
@@ -22,48 +56,83 @@ export function RegisterForm({ setView }: AuthFormProps) {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="text-center"
+        className="text-center py-6"
       >
-        <div className="w-16 h-16 bg-stone-900 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-50">
+        <div className="w-12 h-12 bg-stone-900 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-50">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
-        <h2 className="font-serif text-3xl mb-4 text-stone-900">Cuenta creada</h2>
-        <p className="text-stone-500 mb-8 font-medium">Revisá tu email para verificar tu identidad.</p>
-        <Button onClick={() => setView('login')}>Volver al Login</Button>
+        <h2 className="font-serif text-3xl mb-2 text-stone-900">Negocio registrado</h2>
+        <p className="text-stone-500 mb-4 font-medium">Hemos configurado tu entorno. Revisá tu email para continuar.</p>
+        <Button onClick={() => setView('login')} className="w-full">Ir al Login</Button>
       </motion.div>
     );
   }
 
   return (
-    <motion.div
-      key="register"
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+    <AuthFormWrapper
+      title="Registrar Negocio"
+      subtitle="Empezá a gestionar tu negocio con elegancia y precisión."
+      onBack={() => setView('login')}
     >
-      <div className="mb-10">
-        <button
-          onClick={() => setView('login')}
-          className="mb-8 flex items-center text-sm font-bold tracking-widest uppercase text-stone-400 hover:text-stone-900 transition-colors group focus-visible:outline-stone-900"
-          aria-label="Volver atrás"
-        >
-          <svg className="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-          Atrás
-        </button>
-        <h2 className="font-serif text-4xl lg:text-5xl mb-3 text-stone-900">Crear Cuenta</h2>
-        <p className="text-stone-500 font-medium">Unite a mi-gestion y refiná tu estilo de vida.</p>
-      </div>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Input 
+            label="Nombre del Negocio" 
+            placeholder="Mi Boutique" 
+            error={errors.nombreNegocio?.message}
+            {...register('nombreNegocio')}
+          />
+          <Input 
+            label="URL (Slug)" 
+            placeholder="mi-boutique" 
+            error={errors.slug?.message}
+            {...register('slug')}
+          />
+        </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input label="Nombre Completo" type="text" required placeholder="Jane Doe" />
-        <Input label="Email" type="email" required placeholder="nombre@ejemplo.com" />
-        <Input label="Contraseña" type="password" required placeholder="••••••••" />
+        <div className="grid grid-cols-2 gap-4">
+          <Input 
+            label="Nombre" 
+            placeholder="Juan" 
+            error={errors.propietarioNombre?.message}
+            {...register('propietarioNombre')}
+          />
+          <Input 
+            label="Apellido" 
+            placeholder="Pérez" 
+            error={errors.propietarioApellido?.message}
+            {...register('propietarioApellido')}
+          />
+        </div>
 
-        <div className="pt-4">
-          <Button type="submit" isLoading={isLoading}>Registrarse</Button>
+        <Input 
+          label="Email del Propietario" 
+          type="email" 
+          placeholder="juan@ejemplo.com" 
+          error={errors.propietarioEmail?.message}
+          {...register('propietarioEmail')}
+        />
+
+        <Input 
+          label="Teléfono (Opcional)" 
+          placeholder="+54 11 ..." 
+          error={errors.propietarioTelefono?.message}
+          {...register('propietarioTelefono')}
+        />
+
+        <Input 
+          label="Contraseña" 
+          type="password" 
+          placeholder="••••••••" 
+          error={errors.password?.message}
+          {...register('password')}
+        />
+
+        <div className="pt-2">
+          <Button type="submit" isLoading={isLoading} className="w-full">Crear Cuenta</Button>
         </div>
       </form>
-    </motion.div>
+    </AuthFormWrapper>
   );
 }
+
