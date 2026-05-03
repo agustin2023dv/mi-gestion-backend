@@ -31,5 +31,10 @@ export const catalogApi = {
   getSubcategories: async (params: PaginationParams & { categoriaId?: number }) => {
     const response = await apiClient.get<ApiResponse<PageResponse<Subcategory>>>('/api/v1/subcategorias', { params });
     return response.data;
+  },
+
+  deleteProduct: async (id: number) => {
+    const response = await apiClient.delete<ApiResponse<void>>(`/api/v1/productos/${id}`);
+    return response.data;
   }
 };
